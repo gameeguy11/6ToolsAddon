@@ -13,6 +13,13 @@
     "sound.MixinWWidget",
     "sound.MixinModule",
     "swing.LivingEntitySwingAccessor",
-    "swing.LivingEntitySwingSpeedMixin"
+    "swing.LivingEntitySwingSpeedMixin",
+    "respawn.RespawnPointBlockerMixin",
+    "respawn.RespawnPointBlockerSpamMixin",
+    "music.MusicTrackerMixin",
+    "music.MusicTrackerAccessor",
+    "accessor.PlayerInventoryAccessor",
+    "InputMixin",
+    "ItemSearchFieldMixin"
   ]
 }

@@ -268,8 +268,6 @@ public class InventorySorterModule extends Module {
         if (mc.player == null) return;
         ScreenHandler handler = mc.player.currentScreenHandler;
 
-        // Detect a newly opened/closed screen immediately, independent of the tick-rate throttle
-        // below - this only builds a list of slot ids (or checks a flag), it doesn't send packets.
         if (handler != lastSeenHandler) {
             lastSeenHandler = handler;
 
@@ -291,7 +289,7 @@ public class InventorySorterModule extends Module {
                 InvUtils.shiftClick().slotId(lootJobs.removeFirst());
                 if (lootJobs.isEmpty()) onLootDrained();
             } else {
-                // Storage was closed mid-loot (e.g. server closed it); don't keep clicking a stale screen.
+
                 lootJobs.clear();
             }
             return;
@@ -341,8 +339,7 @@ public class InventorySorterModule extends Module {
         if (wanted == null || wanted.isEmpty()) return;
 
         for (Slot slot : handler.slots) {
-            // Only look at the storage's own slots, not the player's inventory slots the same
-            // handler also exposes.
+
             if (slot.inventory instanceof PlayerInventory) continue;
 
             ItemStack stack = slot.getStack();

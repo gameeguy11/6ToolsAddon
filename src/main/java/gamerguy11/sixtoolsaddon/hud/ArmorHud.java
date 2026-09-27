@@ -129,7 +129,7 @@ public class ArmorHud extends HudElement {
 
         switch (orientation.get()) {
             case Horizontal -> setSize((16 * 4 + 2 * 4) * getScale(), 16 * getScale() + extra);
-            // Every row needs its own room for the durability text below it, not just the last one.
+
             case Vertical -> setSize(16 * getScale(), (16 * getScale() + extra) * 4 + 2 * getScale() * 3);
         }
     }
@@ -175,10 +175,6 @@ public class ArmorHud extends HudElement {
 
             boolean damageable = itemStack.getMaxDamage() > 0;
 
-            // Icons are drawn immediately (not deferred to renderer.post()) so the durability text
-            // below them, which IS deferred, doesn't end up painted underneath/behind the icon
-            // on the next frame - that overlap was what made the percentage look like it sat
-            // "inside" the armor icon instead of below it.
             renderer.item(itemStack, (int) iconX, (int) iconY, getScale(), damageable && durability.get() == Durability.Bar);
 
             if (damageable && durability.get() != Durability.Bar && durability.get() != Durability.None) {
@@ -194,9 +190,6 @@ public class ArmorHud extends HudElement {
                 double textX = iconX + (iconSize - messageWidth) / 2.0;
                 double textY = iconY + iconSize + 1;
 
-                // Use the HudRenderer's own text method (deferred + scaled the same way the icons
-                // are) instead of the raw TextRenderer, which draws in unscaled screen space and
-                // was the reason the text could land on top of the icon at HUD scales other than 1x.
                 renderer.text(message, textX, textY, ThemeColorUtils.resolve(durabilityColor.get(), durabilityColorUseTheme.get()), durabilityShadow.get());
             }
         }

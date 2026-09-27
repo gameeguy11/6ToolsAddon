@@ -94,6 +94,14 @@ public class HomeStore {
     }
 
     public static Home protectedHomeAtPlayer() {
+        return homeAtPlayer(true);
+    }
+
+    public static Home anyHomeAtPlayer() {
+        return homeAtPlayer(false);
+    }
+
+    private static Home homeAtPlayer(boolean protectedOnly) {
         if (mc.player == null || all().isEmpty()) return null;
 
         Dimension here = PlayerUtils.getDimension();
@@ -101,7 +109,7 @@ public class HomeStore {
         int pz = mc.player.getBlockZ();
 
         for (Home home : all().values()) {
-            if (!home.protect) continue;
+            if (protectedOnly && !home.protect) continue;
 
             long[] p = convert(px, pz, here, home.dimension);
             if (p == null) continue;

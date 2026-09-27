@@ -5,7 +5,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-// A single death entry: when it happened, where it happened, and in which dimension.
 public class DeathRecord {
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final Pattern COORD_PATTERN = Pattern.compile("X: (-?\\d+) Y: (-?\\d+) Z: (-?\\d+)");
@@ -26,12 +25,10 @@ public class DeathRecord {
         return new DeathRecord(LocalDateTime.now().format(FORMATTER), x, y, z, dimension);
     }
 
-    // One line of the txt log file.
     public String toLine() {
         return timestamp + " | X: " + x + " Y: " + y + " Z: " + z + " | Dimension: " + dimension;
     }
 
-    // Parses a line written by toLine(). Returns null if the line doesn't match.
     public static DeathRecord fromLine(String line) {
         try {
             String[] parts = line.split("\\|");

@@ -8,9 +8,6 @@ import net.minecraft.client.gui.screen.Screen;
 
 import static meteordevelopment.meteorclient.MeteorClient.mc;
 
-// Shown before the user is allowed to add ESP/tracers for blocks outside the safe
-// (storage + bed) list. Rendering ESP on very common blocks (dirt, stone, etc.) can
-// tank FPS and makes the client stand out, so this makes sure it's an intentional choice.
 public class RiskyBlocksConfirmScreen extends WindowScreen {
     private final Runnable onConfirm;
     private final Runnable onCancel;

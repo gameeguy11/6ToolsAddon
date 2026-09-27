@@ -8,19 +8,36 @@ import gamerguy11.sixtoolsaddon.commands.InventoryCommand;
 import gamerguy11.sixtoolsaddon.commands.SetDiscordCommand;
 import gamerguy11.sixtoolsaddon.gui.EnemiesTab;
 import gamerguy11.sixtoolsaddon.hud.ArmorHud;
+import gamerguy11.sixtoolsaddon.hud.DimensionCoords;
 import gamerguy11.sixtoolsaddon.hud.DubCounterHud;
 import gamerguy11.sixtoolsaddon.hud.InventoryHud;
 import gamerguy11.sixtoolsaddon.hud.PlayerTrackerHud;
 import gamerguy11.sixtoolsaddon.hud.PvPNeccessaryHud;
 import gamerguy11.sixtoolsaddon.hud.StatsHud;
+import gamerguy11.sixtoolsaddon.modules.AutoStashSorter;
+import gamerguy11.sixtoolsaddon.modules.Beyblade;
+import gamerguy11.sixtoolsaddon.modules.ItemSearchBar;
+import gamerguy11.sixtoolsaddon.modules.MapDuplicator;
+import gamerguy11.sixtoolsaddon.modules.MusicTweaks;
+import gamerguy11.sixtoolsaddon.modules.RespawnPointBlocker;
+import gamerguy11.sixtoolsaddon.modules.StashMover;
+import gamerguy11.sixtoolsaddon.modules.StashMoverSelectionHandler;
+import gamerguy11.sixtoolsaddon.modules.Stripper;
+import gamerguy11.sixtoolsaddon.modules.chesttracker.ChestTrackerModule;
+import gamerguy11.sixtoolsaddon.commands.ChestTrackerCommand;
+import gamerguy11.sixtoolsaddon.commands.SetInput;
+import gamerguy11.sixtoolsaddon.commands.SetOutput;
+import gamerguy11.sixtoolsaddon.commands.SetClear;
+import gamerguy11.sixtoolsaddon.commands.StashStatus;
+import gamerguy11.sixtoolsaddon.commands.OnlinePlayersCommand;
 import gamerguy11.sixtoolsaddon.sound.SoundEngine;
 import gamerguy11.sixtoolsaddon.modules.Efly;
-import gamerguy11.sixtoolsaddon.modules.esp.AdvancedESP;
 import gamerguy11.sixtoolsaddon.modules.ForeverForward;
 import gamerguy11.sixtoolsaddon.modules.Ez;
 import gamerguy11.sixtoolsaddon.modules.InventorySorterModule;
 import gamerguy11.sixtoolsaddon.modules.Suicide;
 import gamerguy11.sixtoolsaddon.modules.utility.AntiDrop;
+import gamerguy11.sixtoolsaddon.modules.utility.AutoReturnHome;
 import gamerguy11.sixtoolsaddon.modules.utility.AutoTpAccept;
 import gamerguy11.sixtoolsaddon.modules.utility.ChatHighlighter;
 import gamerguy11.sixtoolsaddon.modules.utility.DeathLogger;
@@ -87,6 +104,7 @@ public class SixToolsAddon extends MeteorAddon {
         Modules.get().add(new AntiDrop());
         Modules.get().add(new AutoTpAccept());
         Modules.get().add(new Homes());
+        Modules.get().add(new AutoReturnHome());
         Modules.get().add(new DiscordNotifier());
         Modules.get().add(new ChatHighlighter());
         Modules.get().add(new ShulkerView());
@@ -95,14 +113,32 @@ public class SixToolsAddon extends MeteorAddon {
         Modules.get().add(new Parkinsons());
         Modules.get().add(new SoundEditor());
         Modules.get().add(new DeathLogger());
-        Modules.get().add(new AdvancedESP());
         Modules.get().add(new Suicide());
+        Modules.get().add(new Beyblade());
+
+        ChestTrackerModule chestTracker = new ChestTrackerModule();
+        Modules.get().add(chestTracker);
+        Modules.get().add(new ItemSearchBar());
+        Modules.get().add(new MapDuplicator());
+        Modules.get().add(new RespawnPointBlocker());
+        Modules.get().add(new Stripper());
+        Modules.get().add(new MusicTweaks());
+
+        Modules.get().add(new StashMover());
+        StashMoverSelectionHandler.init();
+        Modules.get().add(new AutoStashSorter());
 
         Commands.add(new InventoryCommand());
         Commands.add(new DubCounterCommand());
         Commands.add(new SetDiscordCommand());
         Commands.add(new EnemyCommand());
         Commands.add(new CoordsCommand());
+        Commands.add(new ChestTrackerCommand());
+        Commands.add(new SetInput());
+        Commands.add(new SetOutput());
+        Commands.add(new SetClear());
+        Commands.add(new StashStatus());
+        Commands.add(new OnlinePlayersCommand());
 
         Tabs.add(new EnemiesTab());
         moveTabAfter(EnemiesTab.class, FriendsTab.class);
@@ -113,6 +149,7 @@ public class SixToolsAddon extends MeteorAddon {
         Hud.get().register(InventoryHud.INFO);
         Hud.get().register(ArmorHud.INFO);
         Hud.get().register(PvPNeccessaryHud.INFO);
+        Hud.get().register(DimensionCoords.INFO);
     }
 
     @Override

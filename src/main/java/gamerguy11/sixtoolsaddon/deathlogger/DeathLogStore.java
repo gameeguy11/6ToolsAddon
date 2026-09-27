@@ -10,8 +10,6 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 
-// Stores every death in a plain txt file next to the other SixToolsAddon files.
-// The full history lives in the file; the GUI only ever shows the last GUI_LIMIT entries.
 public class DeathLogStore {
     private static final File FILE = new File(MeteorClient.FOLDER, "sixtoolsaddon-deaths.txt");
 
@@ -29,7 +27,6 @@ public class DeathLogStore {
         }
     }
 
-    // Returns up to `limit` most recent deaths, newest first.
     public static List<DeathRecord> lastEntries(int limit) {
         List<DeathRecord> result = new ArrayList<>();
         if (!FILE.exists()) return result;

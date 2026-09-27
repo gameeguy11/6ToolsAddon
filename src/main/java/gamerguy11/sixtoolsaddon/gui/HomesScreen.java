@@ -109,6 +109,16 @@ public class HomesScreen extends WindowScreen {
             .name("allow-friends").description("Friends can still teleport to you inside this home.")
             .defaultValue(false).build());
 
+        private final Setting<Boolean> overrideCooldown = sg.add(new BoolSetting.Builder()
+            .name("custom-return-cooldown")
+            .description("Use a return cooldown just for this home instead of the Auto Return Home module's default.")
+            .defaultValue(false).build());
+
+        private final Setting<Integer> cooldown = sg.add(new IntSetting.Builder()
+            .name("return-cooldown")
+            .description("Seconds after landing in this home before it auto-runs \"/home <name>\" again (needs the Auto Return Home module enabled). Only used if custom-return-cooldown is on.")
+            .defaultValue(60).min(0).sliderRange(0, 600).build());
+
         private final Home existing;
         private final String id;
         private final HomesScreen parentScreen;
@@ -130,6 +140,8 @@ public class HomesScreen extends WindowScreen {
                 protect.set(existing.protect);
                 deny.set(existing.denyInstead);
                 allowFriends.set(existing.allowFriends);
+                overrideCooldown.set(existing.overrideCooldown);
+                cooldown.set(existing.cooldown);
             } else if (mc.player != null) {
                 radius.set(HomeStore.defaultRadius());
                 coords.set(mc.player.getBlockPos());
@@ -156,6 +168,8 @@ public class HomesScreen extends WindowScreen {
             home.protect = protect.get();
             home.denyInstead = deny.get();
             home.allowFriends = allowFriends.get();
+            home.overrideCooldown = overrideCooldown.get();
+            home.cooldown = cooldown.get();
 
             HomeStore.save(id, home);
             mc.setScreen(new HomesScreen(theme));

@@ -1,25 +1,14 @@
 [versions]
 mod-version = "0.1.0"
 
-# Fabric (https://fabricmc.net/develop)
-# Minecraft 1.21.11 is still an OBFUSCATED release (Yarn mappings needed) - the first
-# unobfuscated version is 26.1. Per Fabric's own 1.21.11 post, devs should use Loom 1.14
-# and Fabric Loader 0.18.x. Double-check https://fabricmc.net/develop for anything newer.
 jdk = "21"
 minecraft = "1.21.11"
 yarn-mappings = "1.21.11+build.4"
 fabric-loader = "0.18.3"
-# uses plain Fabric API client events (chat receive/send, tick, HUD render) - pin whatever
-# fabric-api build matches your Yarn mappings from https://fabricmc.net/develop if this 404s.
 fabric-api = "0.141.6+1.21.11"
 
-# Loom (https://github.com/FabricMC/fabric-loom)
 loom = "1.14-SNAPSHOT"
 
-# Meteor (https://github.com/MeteorDevelopment/meteor-client/)
-# NOTE: still couldn't verify the exact current snapshot build string for 1.21.11 from
-# here - check https://maven.meteordev.org/snapshots/meteordevelopment/meteor-client/
-# and pin the newest folder you see there if this one 404s.
 meteor = "1.21.11-SNAPSHOT"
 
 [libraries]
@@ -30,8 +19,4 @@ fabric-api = { module = "net.fabricmc.fabric-api:fabric-api", version.ref = "fab
 meteor-client = { module = "meteordevelopment:meteor-client", version.ref = "meteor" }
 
 [plugins]
-# IMPORTANT: "net.fabricmc.fabric-loom" is now reserved for UNOBFUSCATED Minecraft
-# (26.1+). 1.21.11 is obfuscated, so it needs the legacy short id below instead
-# (net.fabricmc.fabric-loom-remap also works, but "fabric-loom" is what current
-# 1.21.11 projects actually publish with).
 fabric-loom = { id = "fabric-loom", version.ref = "loom" }

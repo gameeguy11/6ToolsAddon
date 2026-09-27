@@ -79,6 +79,13 @@ dependencies {
 
     // Meteor
     modImplementation(libs.meteor.client)
+
+    // StashMover (ported from BepHaxAddon) paths via Baritone (baritone-1.21.11, group "baritone",
+    // artifact "baritone-fabric", version 1.17.0 per its gradle.properties). This fork isn't published
+    // to any Maven repo, so it's included here as a local jar in libs/ instead - since it's a real
+    // Fabric mod jar (has fabric.mod.json + mixins), it needs modImplementation, not plain implementation,
+    // so Loom remaps it to match this project's Yarn mappings.
+    modImplementation(files("libs/baritone-fabric-1.17.0.jar"))
 }
 
 java {
@@ -93,6 +100,7 @@ tasks {
             "version" to project.version,
             "minecraft_version" to libs.versions.minecraft.get(),
             "jdk_version" to libs.versions.jdk.get(),
+            "loader_version" to libs.versions.fabric.loader.get(),
         )
 
         inputs.properties(propertyMap)

@@ -12,6 +12,9 @@ public class Home {
     public boolean denyInstead = false;
     public boolean allowFriends = false;
 
+    public boolean overrideCooldown = false;
+    public int cooldown = 60;
+
     public Home() {}
 
     public Home(String name, int x, int y, int z, int radius, Dimension dimension) {

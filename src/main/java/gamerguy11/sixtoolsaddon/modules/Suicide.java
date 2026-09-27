@@ -154,9 +154,6 @@ public class Suicide extends Module {
         }
     }
 
-    // Places an end crystal on the block you're standing on, then pops it next tick.
-    // Requires you to be standing on obsidian or bedrock - it will NOT place on other
-    // blocks, so if you aren't on a safe base this simply does nothing every tick.
     private void tickAutoCrystal() {
         if (mc.world == null || mc.interactionManager == null) return;
         if (cooldown > 0) {
@@ -170,7 +167,6 @@ public class Suicide extends Module {
         if (mc.world.getBlockState(basePos).getBlock() != Blocks.OBSIDIAN
                 && mc.world.getBlockState(basePos).getBlock() != Blocks.BEDROCK) return;
 
-        // If a crystal is already sitting there, pop it.
         for (EndCrystalEntity crystal : mc.world.getEntitiesByClass(EndCrystalEntity.class,
                 new Box(crystalPos), c -> c.getBlockPos().equals(crystalPos))) {
             mc.interactionManager.attackEntity(mc.player, crystal);
@@ -179,7 +175,6 @@ public class Suicide extends Module {
             return;
         }
 
-        // Otherwise try to place one.
         FindItemResult crystalItem = InvUtils.findInHotbar(Items.END_CRYSTAL);
         if (!crystalItem.found()) return;
 

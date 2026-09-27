@@ -36,7 +36,6 @@ public class CoordsCommand extends Command {
             return SINGLE_SUCCESS;
         });
 
-        // "coords raw" copies raw x,y,z with no formatting (useful for pasting into other tools)
         builder.then(literal("raw").executes(ctx -> {
             if (mc.player == null) {
                 ChatUtils.error("You must be in-game to use this command.");

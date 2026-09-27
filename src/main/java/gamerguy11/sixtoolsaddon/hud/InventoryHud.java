@@ -142,14 +142,12 @@ public class InventoryHud extends HudElement {
         boolean drawCount = showCount.get() && !stack.isEmpty() && stack.getCount() > 1;
         String countOverlay = drawCount ? Integer.toString(stack.getCount()) : null;
 
-        // "overlay" must be true for the count text (and any durability bar) to render at all -
-        // it's the gate `drawStackOverlay` is called behind, not just cosmetic here.
         renderer.item(stack, (int) iconX, (int) iconY, getScale(), drawCount, countOverlay);
     }
 
     private ItemStack getSlot(int index) {
         if (isInEditor()) {
-            // Show a representative sample item in the editor so the layout is visible without joining a world.
+
             return index % 5 == 0 ? new ItemStack(Items.DIAMOND) : ItemStack.EMPTY;
         }
 

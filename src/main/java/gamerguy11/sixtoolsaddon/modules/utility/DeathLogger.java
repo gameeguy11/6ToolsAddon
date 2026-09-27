@@ -14,8 +14,6 @@ import meteordevelopment.orbit.EventHandler;
 
 import static meteordevelopment.meteorclient.MeteorClient.mc;
 
-// Watches the player's health and, the moment it drops to 0, writes the last known
-// position (and dimension) to sixtoolsaddon-deaths.txt. The GUI shows the last 10 entries.
 public class DeathLogger extends Module {
     private int lastX, lastY, lastZ;
     private String lastDimension = "Overworld";
@@ -49,7 +47,7 @@ public class DeathLogger extends Module {
             lastDimension = PlayerUtils.getDimension().name();
             hasPosition = true;
         } else if (wasAlive && hasPosition) {
-            // Health just dropped to 0 this tick - this is the death.
+
             DeathLogStore.append(DeathRecord.now(lastX, lastY, lastZ, lastDimension));
         }
 
