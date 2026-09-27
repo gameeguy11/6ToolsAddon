@@ -16,18 +16,13 @@ import static com.mojang.brigadier.Command.SINGLE_SUCCESS;
 
 public class OnlinePlayersCommand extends Command {
     public OnlinePlayersCommand() {
-        super("onlineplayers", "Lists your online friends or enemies.", "online");
+        super("onlineplayers", "Lists your online friends or enemies.");
     }
 
     @Override
     public void build(LiteralArgumentBuilder<CommandSource> builder) {
         builder.then(literal("friends").executes(ctx -> {
             listOnline(true);
-            return SINGLE_SUCCESS;
-        }));
-
-        builder.then(literal("enemys").executes(ctx -> {
-            listOnline(false);
             return SINGLE_SUCCESS;
         }));
 
