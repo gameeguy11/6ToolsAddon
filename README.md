@@ -727,7 +727,7 @@ versions if any of them move.
   this addon's structure (package, category, config folder) and simplified to target only
   this project's supported Minecraft version, with the rest of the logic unchanged. Full
   credit for the original module and its Discord-style HTML log design goes to Plumbiller.
-
+- **Chest related modules** are adapted from [BepHexAddon](https://github.com/dekrom/BepHaxAddon)
 ## License
 
 MIT, see [LICENSE](LICENSE). You're free to use, modify, and redistribute this addon as
