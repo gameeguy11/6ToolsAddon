@@ -9,7 +9,8 @@ A [Meteor Client](https://github.com/MeteorDevelopment/meteor-client) addon for 
 [![Stars](https://img.shields.io/github/stars/gameeguy11/6ToolsAddon-)](https://github.com/gameeguy11/6ToolsAddon-/stargazers)
 [![Code Size](https://img.shields.io/github/languages/code-size/gameeguy11/6ToolsAddon-)](https://github.com/gameeguy11/6ToolsAddon-)
 [![Issues](https://img.shields.io/github/issues/gameeguy11/6ToolsAddon-)](https://github.com/gameeguy11/6ToolsAddon-/issues)
-[![Discord][vidget-discord][discord]
+
+[![Discord][vidget-discord]][discord]
 #### Showcase: https://medal.tv/games/minecraft/clips/nz5q0SlHc9e2K63a6?invite=cr-MSwxcHEsMzIxOTEyMjI1
 
 ## Using this addon might give you 2 **FREE** homes
@@ -732,5 +733,5 @@ versions if any of them move.
 
 MIT, see [LICENSE](LICENSE). You're free to use, modify, and redistribute this addon as
 long as the original copyright notice and the credits above are kept.
-[discord]: https://discord.gg/5GySV4zav
+[discord]: https://discord.gg/fdHkyVYc8
 [vidget-discord]: https://invidget.switchblade.xyz/1504623086769537207
