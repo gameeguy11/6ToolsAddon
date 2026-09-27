@@ -591,7 +591,7 @@ ender pearls, etc.), so you can glance at your stock without opening your invent
 </details>
 
 <details>
-<summary>▸ Dub Counter HUD</summary>
+<summary> Dub Counter HUD</summary>
 
 Small text element mirroring the `.dub` command's last result (reads the command's stored
 state directly rather than re-scanning). Drag it onto your screen from the HUD editor,
