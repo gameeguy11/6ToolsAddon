@@ -10,7 +10,7 @@ A [Meteor Client](https://github.com/MeteorDevelopment/meteor-client) addon for 
 [![Code Size](https://img.shields.io/github/languages/code-size/gameeguy11/6ToolsAddon-)](https://github.com/gameeguy11/6ToolsAddon-)
 [![Issues](https://img.shields.io/github/issues/gameeguy11/6ToolsAddon-)](https://github.com/gameeguy11/6ToolsAddon-/issues)
 
-[![Discord][vidget-discord]][discord]
+[![Discord](https://invidget.switchblade.xyz/fdHkyVYc8)](https://discord.gg/fdHkyVYc8)
 <!--
 [![Discord](https://img.shields.io/discord/1504623086769537207?logo=discord&logoColor=white&label=Discord)](https://discord.gg/fdHkyVYc8)
 
@@ -736,5 +736,6 @@ versions if any of them move.
 
 MIT, see [LICENSE](LICENSE). You're free to use, modify, and redistribute this addon as
 long as the original copyright notice and the credits above are kept.
+
 [discord]: https://discord.gg/fdHkyVYc8
 [vidget-discord]: https://invidget.switchblade.xyz/fdHkyVYc8
