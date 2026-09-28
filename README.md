@@ -10,9 +10,9 @@ A [Meteor Client](https://github.com/MeteorDevelopment/meteor-client) addon for 
 [![Code Size](https://img.shields.io/github/languages/code-size/gameeguy11/6ToolsAddon-)](https://github.com/gameeguy11/6ToolsAddon-)
 [![Issues](https://img.shields.io/github/issues/gameeguy11/6ToolsAddon-)](https://github.com/gameeguy11/6ToolsAddon-/issues)
 
-[![Discord](https://img.shields.io/discord/1504623086769537207?logo=discord&logoColor=white&label=Discord)](https://discord.gg/fdHkyVYc8)
-<!--
 [![Discord][vidget-discord]][discord]
+<!--
+[![Discord](https://img.shields.io/discord/1504623086769537207?logo=discord&logoColor=white&label=Discord)](https://discord.gg/fdHkyVYc8)
 
 <iframe src="https://discord.com/widget?id=1504623086769537207&theme=dark" width="350" height="500" allowtransparency="true" frameborder="0" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"></iframe>
 -->
@@ -737,4 +737,4 @@ versions if any of them move.
 MIT, see [LICENSE](LICENSE). You're free to use, modify, and redistribute this addon as
 long as the original copyright notice and the credits above are kept.
 [discord]: https://discord.gg/fdHkyVYc8
-[vidget-discord]: https://invidget.switchblade.xyz/1504623086769537207
+[vidget-discord]: https://invidget.switchblade.xyz/fdHkyVYc8
