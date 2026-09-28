@@ -705,12 +705,11 @@ public class ChestTrackerModule extends Module {
     }
     private boolean isInContainerScreen() {
         if (mc.player == null) return false;
-        // In silent mode the container is open server-side without a screen, so don't require one.
+
         if (mc.currentScreen == null && !silentMode.get()) return false;
         return mc.player.currentScreenHandler != mc.player.playerScreenHandler;
     }
 
-    /** Called by the setScreen mixin: true if this screen is the container we're auto-opening silently. */
     public boolean shouldSuppressScreen(net.minecraft.client.gui.screen.Screen screen) {
         if (!isActive() || !silentMode.get() || !silentPending) return false;
         return screen instanceof HandledScreen<?>

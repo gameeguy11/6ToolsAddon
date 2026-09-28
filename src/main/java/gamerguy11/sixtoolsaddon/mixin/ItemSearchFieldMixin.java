@@ -83,13 +83,13 @@ public abstract class ItemSearchFieldMixin extends Screen {
 
         int keyCode = input.key();
 
-        if (keyCode == 258) { // TAB
+        if (keyCode == 258) {
             this.setFocused(itemSearch$field);
             itemSearch$field.setFocused(true);
             cir.setReturnValue(true);
             return;
         }
-        if (keyCode == 256 && itemSearch$field.isFocused()) { // ESCAPE
+        if (keyCode == 256 && itemSearch$field.isFocused()) {
             this.setFocused(null);
             itemSearch$field.setFocused(false);
             cir.setReturnValue(true);

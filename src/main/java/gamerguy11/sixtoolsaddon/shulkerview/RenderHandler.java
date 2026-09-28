@@ -20,17 +20,17 @@ import java.util.Map;
 import static meteordevelopment.meteorclient.MeteorClient.mc;
 
 public class RenderHandler {
-    private static final int MARGIN = 4;      // distance from the screen edge
-    private static final int PAD = 4;         // padding inside each panel
-    private static final int CELL = 18;       // slot pitch (16px item + 2px)
-    private static final int HEADER_HEIGHT = 11; // extra room for the count badge on stacked previews
+    private static final int MARGIN = 4;
+    private static final int PAD = 4;
+    private static final int CELL = 18;
+    private static final int HEADER_HEIGHT = 11;
 
     private final ShulkerView config;
 
     private record Hit(int slot, int x, int y, int w, int h) {}
 
     private final Vector2d clicked = new Vector2d();
-    /** Manual position offsets (in preview space) per shulker slot, set by right-click dragging. */
+
     private final Map<Integer, Vector2d> offsets = new HashMap<>();
     private final List<Hit> hits = new ArrayList<>();
     private int draggingSlot = -1;
@@ -105,7 +105,6 @@ public class RenderHandler {
 
             if (stacked) drawBadge(context, info, x + width - PAD - badgeWidth(info), y + 3);
 
-            // Center the slot grid horizontally when the panel is wider than the grid (narrow stacked previews).
             int gridX = x + (width - (cols * CELL - 1)) / 2;
             int count = 0;
             int hoveredIndex = -1;
@@ -127,7 +126,6 @@ public class RenderHandler {
                 context.drawItem(info.shulker(), gridX + 1, y + top + 1);
             }
 
-            // Tooltip last so nothing is drawn over it.
             if (hoveredIndex >= 0) drawTooltip(context, info.stacks().get(hoveredIndex), mouseX, mouseY);
 
             if (clicked.lengthSquared() != 0 && isHovered(clicked.x, clicked.y, x, y, width, height)) clickShulker(info);
@@ -136,26 +134,21 @@ public class RenderHandler {
         currentY += height + config.getSpacing();
     }
 
-    /** Rounded panel: translucent body, thin outline tinted with the shulker color, and an accent strip on top. */
     private void drawPanel(DrawContext context, int x, int y, int w, int h, int color) {
         int rgb = color & 0xFFFFFF;
         int outline = (0x90 << 24) | rgb;
         int accent = (0xFF << 24) | rgb;
 
-        // Body (corners notched by 1px for a rounded look)
         context.fill(x + 1, y + 1, x + w - 1, y + h - 1, config.getBackground());
 
-        // Outline
         context.fill(x + 1, y, x + w - 1, y + 1, outline);
         context.fill(x + 1, y + h - 1, x + w - 1, y + h, outline);
         context.fill(x, y + 1, x + 1, y + h - 1, outline);
         context.fill(x + w - 1, y + 1, x + w, y + h - 1, outline);
 
-        // Accent strip along the top edge
         context.fill(x + 2, y + 1, x + w - 2, y + 3, accent);
     }
 
-    /** Pill-shaped "3x" badge in the shulker's color with readable text. */
     private void drawBadge(DrawContext context, ShulkerInfo info, int x, int y) {
         String label = info.count() + "x";
         int w = badgeWidth(info);
@@ -173,7 +166,6 @@ public class RenderHandler {
         context.drawText(mc.textRenderer, label, x + 4, y + 1, textColor, false);
     }
 
-    /** Returns true if the click was consumed (right/middle click on a preview). */
     public boolean mouseClick(Click click) {
         if (click.button() == 0) {
             clicked.set(click.x(), click.y());
@@ -183,11 +175,11 @@ public class RenderHandler {
         int hit = hitTest(click.x(), click.y());
         if (hit < 0) return false;
 
-        if (click.button() == 1) { // right click: start moving this preview
+        if (click.button() == 1) {
             draggingSlot = hit;
             return true;
         }
-        if (click.button() == 2) { // middle click: reset all moved previews
+        if (click.button() == 2) {
             offsets.clear();
             return true;
         }
@@ -206,7 +198,6 @@ public class RenderHandler {
         return true;
     }
 
-    /** Slot of the topmost preview under the mouse, or -1. */
     private int hitTest(double mouseX, double mouseY) {
         double mx = mouseX / scale, my = mouseY / scale;
         for (int i = hits.size() - 1; i >= 0; i--) {

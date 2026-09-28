@@ -32,7 +32,6 @@ public class UpdateHandler {
             ShulkerInfo info = ShulkerInfo.create(config, slot.getStack(), slot.id);
             if (info == null) continue;
 
-            // Merge into an earlier identical shulker; the first one keeps its slot for click-to-pick-up.
             boolean merged = false;
             if (stack) {
                 for (int i = 0; i < found.size(); i++) {
@@ -47,8 +46,6 @@ public class UpdateHandler {
             if (!merged) found.add(info);
         }
 
-        // Fullest shulker first, then emptier ones further down. Stable sort keeps inventory order for ties;
-        // for equal contents, the bigger stack of identical boxes goes first.
         found.sort(Comparator.comparingInt(ShulkerInfo::totalItems).reversed()
             .thenComparing(Comparator.comparingInt(ShulkerInfo::count).reversed()));
 

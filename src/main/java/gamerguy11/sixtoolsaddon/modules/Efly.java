@@ -1,4 +1,3 @@
-
 package gamerguy11.sixtoolsaddon.modules;
 
 import gamerguy11.sixtoolsaddon.SixToolsAddon;

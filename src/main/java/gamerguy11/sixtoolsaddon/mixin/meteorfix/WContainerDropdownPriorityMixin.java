@@ -11,20 +11,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.lang.reflect.Field;
 
-/**
- * Belt-and-braces companion to WDropdownClickThroughMixin.
- *
- * A WContainer normally hands a click to its cells in add order, which is
- * also (roughly) back-to-front draw order. An open dropdown's popup is
- * drawn as a floating overlay on top of everything else regardless of when
- * it was added, so if it happens to sit earlier in a cell list than the
- * widget it visually overlaps, that widget would still be asked first.
- *
- * Before doing normal iteration, this looks for any dropdown in the
- * container that is currently expanded and gives it first refusal on the
- * click/release. WDropdownClickThroughMixin guarantees such a dropdown
- * consumes the event, so nothing underneath it ever sees the click.
- */
 @Mixin(value = WContainer.class, remap = false)
 public abstract class WContainerDropdownPriorityMixin {
 

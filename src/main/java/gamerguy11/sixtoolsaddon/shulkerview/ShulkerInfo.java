@@ -43,7 +43,6 @@ public record ShulkerInfo(ItemStack shulker, boolean compact, int color, int slo
         return new ShulkerInfo(stack, compact, ColorUtils.getColor(block), slot, items, 1);
     }
 
-    /** Total number of items inside one of these shulkers (sum of all stack sizes). */
     public int totalItems() {
         int total = 0;
         for (ItemStack item : stacks) {
@@ -56,13 +55,12 @@ public record ShulkerInfo(ItemStack shulker, boolean compact, int color, int slo
         return new ShulkerInfo(shulker, compact, color, slot, stacks, count);
     }
 
-    /** True if both shulkers are the same box type (color) and hold the same contents. */
     public boolean sameAs(ShulkerInfo other) {
         if (!shulker.isOf(other.shulker.getItem())) return false;
         if (compact != other.compact) return false;
 
         if (compact) {
-            // Compact previews are just item -> total count, so slot layout doesn't matter.
+
             return totals(stacks).equals(totals(other.stacks));
         }
 

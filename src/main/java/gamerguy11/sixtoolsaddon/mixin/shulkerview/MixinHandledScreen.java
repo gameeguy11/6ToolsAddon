@@ -37,7 +37,6 @@ public abstract class MixinHandledScreen extends Screen {
 
         module.getRenderHandler().render(context, x, y);
 
-        // ShulkerBoxTooltip draws its preview through the normal item tooltip, so don't cancel it when that mod is present.
         if (module.shouldKeepItemTooltip()) return;
 
         Slot focused = ((DuckHandledScreen) (Object) this).shulkerView$getFocused();

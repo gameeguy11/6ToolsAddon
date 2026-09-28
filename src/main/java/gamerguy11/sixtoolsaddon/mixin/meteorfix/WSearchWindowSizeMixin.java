@@ -8,14 +8,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/**
- * Keeps the search window from growing wider/taller than the screen (or
- * narrower than is comfortable to read), without freezing it at any
- * particular size. Every call re-clamps against the window's *current*
- * real content size, so the box always tracks what's actually in it -
- * typing a more specific search correctly shrinks the window, clearing a
- * search correctly grows it back.
- */
 @Mixin(value = WWidget.class, remap = false)
 public abstract class WSearchWindowSizeMixin {
     private static final double MIN_WIDTH = 220;

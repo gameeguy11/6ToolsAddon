@@ -119,7 +119,6 @@ public class ShulkerView extends Module {
 
     private static final boolean SHULKER_BOX_TOOLTIP_LOADED = FabricLoader.getInstance().isModLoaded("shulkerboxtooltip");
 
-    /** True if the vanilla tooltip of a hovered shulker box should be left alone so ShulkerBoxTooltip can draw its preview. */
     public boolean shouldKeepItemTooltip() {
         return SHULKER_BOX_TOOLTIP_LOADED && shulkerBoxTooltipCompat.get();
     }
