@@ -671,9 +671,6 @@ Use whatever command prefix your Meteor build is set to, not the dot:
 | `.setclear`                    | Clear all Stash Mover area selections                    |
 | `.stashstatus`                 | Check Stash Mover areas and current configuration        |
 
-`.onlineplayers` also accepts `.online` as a shorthand alias, and `enemies` works as an
-alternate spelling alongside `enemys`.
-
 ## Discord Webhook Setup
 
 Discord Notifier needs a webhook URL before it can send anything. A webhook is a link tied
@@ -729,6 +726,7 @@ versions if any of them move.
   this project's supported Minecraft version, with the rest of the logic unchanged. Full
   credit for the original module and its Discord-style HTML log design goes to Plumbiller.
 - **Chest related modules** are adapted from [BepHexAddon](https://github.com/dekrom/BepHaxAddon)
+- **Meteor Fix** One of the meteor bug fixes used Fractal420 [Meteor-GUI-Position-Fix](https://github.com/Fractal420/Meteor-GUI-Position-Fix).
 ## License
 
 MIT, see [LICENSE](LICENSE). You're free to use, modify, and redistribute this addon as

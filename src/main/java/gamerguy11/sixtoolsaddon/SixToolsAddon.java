@@ -15,7 +15,7 @@ import gamerguy11.sixtoolsaddon.hud.PlayerTrackerHud;
 import gamerguy11.sixtoolsaddon.hud.PvPNeccessaryHud;
 import gamerguy11.sixtoolsaddon.hud.StatsHud;
 import gamerguy11.sixtoolsaddon.modules.AutoStashSorter;
-import gamerguy11.sixtoolsaddon.modules.Beyblade;
+import gamerguy11.sixtoolsaddon.modules.CsgoSpin;
 import gamerguy11.sixtoolsaddon.modules.ItemSearchBar;
 import gamerguy11.sixtoolsaddon.modules.MapDuplicator;
 import gamerguy11.sixtoolsaddon.modules.MusicTweaks;
@@ -114,7 +114,7 @@ public class SixToolsAddon extends MeteorAddon {
         Modules.get().add(new SoundEditor());
         Modules.get().add(new DeathLogger());
         Modules.get().add(new Suicide());
-        Modules.get().add(new Beyblade());
+        Modules.get().add(new CsgoSpin());
 
         ChestTrackerModule chestTracker = new ChestTrackerModule();
         Modules.get().add(chestTracker);

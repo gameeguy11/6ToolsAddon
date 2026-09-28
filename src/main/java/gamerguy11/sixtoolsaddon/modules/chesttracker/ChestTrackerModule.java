@@ -61,6 +61,13 @@ public class ChestTrackerModule extends Module {
         .defaultValue(false)
         .build()
     );
+    private final Setting<Boolean> silentMode = sgAutoOpen.add(new BoolSetting.Builder()
+        .name("silent-mode")
+        .description("Auto-opened containers are read in the background: the container screen never appears and your hand doesn't swing. Manually opened containers are unaffected.")
+        .defaultValue(true)
+        .visible(autoOpenEnabled::get)
+        .build()
+    );
     private final Setting<Double> autoOpenRange = sgAutoOpen.add(new DoubleSetting.Builder()
         .name("auto-open-range")
         .description("Range to search for containers to auto-open.")
@@ -214,6 +221,7 @@ public class ChestTrackerModule extends Module {
     private BlockPos baritoneGoalPos = null;
     private long lastRenderCacheUpdate = 0;
     private boolean shouldAutoClose = false;
+    private boolean silentPending = false;
     private int ticksUntilClose = 0;
     private static final int AWAITING_TIMEOUT = 40;
     private final Map<BlockPos, Integer> blockedContainers = new HashMap<>();
@@ -247,6 +255,7 @@ public class ChestTrackerModule extends Module {
         currentOpenPositions = new BlockPos[2];
         renderCache.clear();
         shouldAutoClose = false;
+        silentPending = false;
         ticksUntilClose = 0;
         blockedContainers.clear();
     }
@@ -266,6 +275,7 @@ public class ChestTrackerModule extends Module {
     }
     @EventHandler
     private void onTick(TickEvent.Pre event) {
+        if (!awaiting) silentPending = false;
         if (!blockedContainers.isEmpty()) {
             Iterator<Map.Entry<BlockPos, Integer>> it = blockedContainers.entrySet().iterator();
             while (it.hasNext()) {
@@ -417,6 +427,7 @@ public class ChestTrackerModule extends Module {
                             cancelBaritoneGoal();
                             blockedContainers.remove(blockPos);
                             awaiting = true;
+                            silentPending = silentMode.get();
                             awaitingTicks = 0;
                             currentOpenPositions[0] = blockPos.toImmutable();
                             currentOpenPositions[1] = null;
@@ -428,7 +439,7 @@ public class ChestTrackerModule extends Module {
                                     currentOpenPositions[1] = otherPos;
                                 }
                             }
-                            mc.player.swingHand(Hand.MAIN_HAND);
+                            if (!silentMode.get()) mc.player.swingHand(Hand.MAIN_HAND);
                             if (debugMode.get()) {
                                 info("Auto-opening container at " + blockPos.toShortString());
                             }
@@ -693,9 +704,18 @@ public class ChestTrackerModule extends Module {
         return "container";
     }
     private boolean isInContainerScreen() {
-        if (mc.currentScreen == null) return false;
         if (mc.player == null) return false;
+        // In silent mode the container is open server-side without a screen, so don't require one.
+        if (mc.currentScreen == null && !silentMode.get()) return false;
         return mc.player.currentScreenHandler != mc.player.playerScreenHandler;
+    }
+
+    /** Called by the setScreen mixin: true if this screen is the container we're auto-opening silently. */
+    public boolean shouldSuppressScreen(net.minecraft.client.gui.screen.Screen screen) {
+        if (!isActive() || !silentMode.get() || !silentPending) return false;
+        return screen instanceof HandledScreen<?>
+            && !(screen instanceof InventoryScreen)
+            && !(screen instanceof CreativeInventoryScreen);
     }
     private String getCurrentDimension() {
         if (mc.world == null) return "unknown";

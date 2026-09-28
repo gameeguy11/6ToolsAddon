@@ -7,6 +7,7 @@
     "shulkerview.DuckHandledScreen",
     "shulkerview.MixinHandledScreen",
     "shulkerview.MixinCreativeInventoryScreen",
+    "chesttracker.MixinMinecraftClient",
     "anarchymod.BlockedServersMixin",
     "anarchymod.JoinNotifierMixin",
     "splash.SplashTextResourceSupplierMixin",
@@ -20,6 +21,18 @@
     "music.MusicTrackerAccessor",
     "accessor.PlayerInventoryAccessor",
     "InputMixin",
-    "ItemSearchFieldMixin"
+    "ItemSearchFieldMixin",
+    "meteorfix.WDropdownClickThroughMixin",
+    "meteorfix.WContainerDropdownPriorityMixin",
+    "meteorfix.WContainerMoveMixin",
+    "meteorfix.WCategoryControllerLayoutMixin",
+    "meteorfix.CatppuccinCategoryControllerLayoutMixin",
+    "meteorfix.CatppuccinHeaderReleaseMixin",
+    "meteorfix.WSearchWindowSizeMixin",
+    "meteorfix.WWindowLayoutMixin",
+    "meteorfix.WWindowClampMixin",
+    "meteorfix.WWindowTitleAccessor",
+    "meteorfix.WWindowDragStateAccessor",
+    "meteorfix.WHeaderReleaseMixin"
   ]
 }

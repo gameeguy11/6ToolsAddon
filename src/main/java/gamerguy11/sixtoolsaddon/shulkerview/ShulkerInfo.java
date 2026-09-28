@@ -13,7 +13,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public record ShulkerInfo(ItemStack shulker, boolean compact, int color, int slot, List<ItemStack> stacks) {
+public record ShulkerInfo(ItemStack shulker, boolean compact, int color, int slot, List<ItemStack> stacks, int count) {
 
     public static ShulkerInfo create(ShulkerView config, ItemStack stack, int slot) {
         ShulkerBoxBlock block = getBlock(stack);
@@ -40,7 +40,46 @@ public record ShulkerInfo(ItemStack shulker, boolean compact, int color, int slo
 
         if (compact) shrinkToCompact(items);
 
-        return new ShulkerInfo(stack, compact, ColorUtils.getColor(block), slot, items);
+        return new ShulkerInfo(stack, compact, ColorUtils.getColor(block), slot, items, 1);
+    }
+
+    /** Total number of items inside one of these shulkers (sum of all stack sizes). */
+    public int totalItems() {
+        int total = 0;
+        for (ItemStack item : stacks) {
+            if (!item.isEmpty()) total += item.getCount();
+        }
+        return total;
+    }
+
+    public ShulkerInfo withCount(int count) {
+        return new ShulkerInfo(shulker, compact, color, slot, stacks, count);
+    }
+
+    /** True if both shulkers are the same box type (color) and hold the same contents. */
+    public boolean sameAs(ShulkerInfo other) {
+        if (!shulker.isOf(other.shulker.getItem())) return false;
+        if (compact != other.compact) return false;
+
+        if (compact) {
+            // Compact previews are just item -> total count, so slot layout doesn't matter.
+            return totals(stacks).equals(totals(other.stacks));
+        }
+
+        if (stacks.size() != other.stacks.size()) return false;
+        for (int i = 0; i < stacks.size(); i++) {
+            if (!ItemStack.areEqual(stacks.get(i), other.stacks.get(i))) return false;
+        }
+        return true;
+    }
+
+    private static Map<Item, Integer> totals(List<ItemStack> items) {
+        Map<Item, Integer> map = new HashMap<>();
+        for (ItemStack item : items) {
+            if (item.isEmpty()) continue;
+            map.merge(item.getItem(), item.getCount(), Integer::sum);
+        }
+        return map;
     }
 
     private static void shrinkToCompact(List<ItemStack> items) {

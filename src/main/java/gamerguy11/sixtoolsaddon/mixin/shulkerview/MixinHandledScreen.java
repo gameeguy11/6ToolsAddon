@@ -37,6 +37,9 @@ public abstract class MixinHandledScreen extends Screen {
 
         module.getRenderHandler().render(context, x, y);
 
+        // ShulkerBoxTooltip draws its preview through the normal item tooltip, so don't cancel it when that mod is present.
+        if (module.shouldKeepItemTooltip()) return;
+
         Slot focused = ((DuckHandledScreen) (Object) this).shulkerView$getFocused();
         if (focused != null) {
             ItemStack stack = focused.getStack();
@@ -44,12 +47,28 @@ public abstract class MixinHandledScreen extends Screen {
         }
     }
 
-    @Inject(method = "mouseClicked", at = @At("HEAD"))
+    @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
     private void shulkerView$mouseClicked(Click click, boolean doubled, CallbackInfoReturnable<Boolean> cir) {
         ShulkerView module = Modules.get().get(ShulkerView.class);
         if (module == null || !module.isActive()) return;
 
-        module.getRenderHandler().mouseClick(click);
+        if (module.getRenderHandler().mouseClick(click)) cir.setReturnValue(true);
+    }
+
+    @Inject(method = "mouseDragged", at = @At("HEAD"), cancellable = true)
+    private void shulkerView$mouseDragged(Click click, double offsetX, double offsetY, CallbackInfoReturnable<Boolean> cir) {
+        ShulkerView module = Modules.get().get(ShulkerView.class);
+        if (module == null || !module.isActive()) return;
+
+        if (module.getRenderHandler().mouseDrag(click, offsetX, offsetY)) cir.setReturnValue(true);
+    }
+
+    @Inject(method = "mouseReleased", at = @At("HEAD"), cancellable = true)
+    private void shulkerView$mouseReleased(Click click, CallbackInfoReturnable<Boolean> cir) {
+        ShulkerView module = Modules.get().get(ShulkerView.class);
+        if (module == null || !module.isActive()) return;
+
+        if (module.getRenderHandler().mouseRelease(click)) cir.setReturnValue(true);
     }
 
     @Inject(method = "mouseScrolled", at = @At("HEAD"))

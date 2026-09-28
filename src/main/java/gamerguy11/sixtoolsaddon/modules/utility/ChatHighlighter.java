@@ -1,11 +1,12 @@
 package gamerguy11.sixtoolsaddon.modules.utility;
 
-import gamerguy11.sixtoolsaddon.utils.ThemeColorUtils;
 import gamerguy11.sixtoolsaddon.SixToolsAddon;
 import gamerguy11.sixtoolsaddon.systems.enemies.Enemies;
 import meteordevelopment.meteorclient.events.game.ReceiveMessageEvent;
 import meteordevelopment.meteorclient.settings.BoolSetting;
 import meteordevelopment.meteorclient.settings.ColorSetting;
+import meteordevelopment.meteorclient.settings.DoubleSetting;
+import meteordevelopment.meteorclient.settings.StringListSetting;
 import meteordevelopment.meteorclient.settings.Setting;
 import meteordevelopment.meteorclient.settings.SettingGroup;
 import meteordevelopment.meteorclient.settings.StringSetting;
@@ -13,6 +14,7 @@ import meteordevelopment.meteorclient.systems.friends.Friends;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 import meteordevelopment.orbit.EventHandler;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Style;
 import net.minecraft.text.Text;
@@ -20,6 +22,7 @@ import net.minecraft.text.TextColor;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -51,6 +54,30 @@ public class ChatHighlighter extends Module {
             .build()
     );
 
+    private final Setting<Boolean> highlightNearby = sgGeneral.add(new BoolSetting.Builder()
+            .name("highlight-nearby")
+            .description("Colors the names of players currently within range of you.")
+            .defaultValue(false)
+            .build()
+    );
+
+    private final Setting<Double> nearbyRange = sgGeneral.add(new DoubleSetting.Builder()
+            .name("nearby-range")
+            .description("How close (in blocks) a player must be to count as nearby.")
+            .defaultValue(64)
+            .min(1)
+            .sliderRange(8, 256)
+            .visible(highlightNearby::get)
+            .build()
+    );
+
+    private final Setting<List<String>> customPlayers = sgGeneral.add(new StringListSetting.Builder()
+            .name("custom-players")
+            .description("Specific players to highlight. Use \"Name:RRGGBB\" (e.g. Steve:FF8800) for a specific color, or just \"Name\" for a default purple. Overrides every other highlight.")
+            .defaultValue(new ArrayList<>())
+            .build()
+    );
+
     private final Setting<String> usernamePattern = sgGeneral.add(new StringSetting.Builder()
             .name("username-pattern")
             .description("Regex used to find the sender's name at the start of a chat line. Capture group 1 must be the name.")
@@ -62,45 +89,28 @@ public class ChatHighlighter extends Module {
             .name("self-color")
             .description("Color for your own name.")
             .defaultValue(new SettingColor(SixToolsAddon.THEME_COLOR.r, SixToolsAddon.THEME_COLOR.g, SixToolsAddon.THEME_COLOR.b))
-            .visible(highlightSelf::get)
             .build()
-    );
-
-    private final Setting<Boolean> selfColorUseTheme = sgColors.add(new BoolSetting.Builder()
-        .name("self-use-theme")
-        .description("Use the current Meteor theme accent color.")
-        .defaultValue(false)
-        .build()
     );
 
     private final Setting<SettingColor> friendColor = sgColors.add(new ColorSetting.Builder()
             .name("friend-color")
             .description("Color for players on your Meteor friends list.")
             .defaultValue(new SettingColor(75, 225, 75))
-            .visible(highlightFriends::get)
             .build()
-    );
-
-    private final Setting<Boolean> friendColorUseTheme = sgColors.add(new BoolSetting.Builder()
-        .name("friend-use-theme")
-        .description("Use the current Meteor theme accent color.")
-        .defaultValue(false)
-        .build()
     );
 
     private final Setting<SettingColor> enemyColor = sgColors.add(new ColorSetting.Builder()
             .name("enemy-color")
             .description("Color for players on your enemies list.")
             .defaultValue(new SettingColor(225, 75, 75))
-            .visible(highlightEnemies::get)
             .build()
     );
 
-    private final Setting<Boolean> enemyColorUseTheme = sgColors.add(new BoolSetting.Builder()
-        .name("enemy-use-theme")
-        .description("Use the current Meteor theme accent color.")
-        .defaultValue(false)
-        .build()
+    private final Setting<SettingColor> nearbyColor = sgColors.add(new ColorSetting.Builder()
+            .name("nearby-color")
+            .description("Color for nearby players.")
+            .defaultValue(new SettingColor(255, 200, 60))
+            .build()
     );
 
     private final Setting<Boolean> debug = sgGeneral.add(new BoolSetting.Builder()
@@ -110,6 +120,8 @@ public class ChatHighlighter extends Module {
             .build()
     );
 
+    private static final SettingColor DEFAULT_CUSTOM_COLOR = new SettingColor(200, 100, 255);
+
     private Pattern compiledPattern;
     private String compiledFrom;
 
@@ -117,7 +129,7 @@ public class ChatHighlighter extends Module {
         super(
                 SixToolsAddon.CATEGORY,
                 "chat-highlight",
-                "Colors player names in chat: yourself, friends, and a custom enemy list."
+                "Colors player names in chat: yourself, friends, enemies, nearby players, and custom players."
         );
     }
 
@@ -150,13 +162,13 @@ public class ChatHighlighter extends Module {
         if (debug.get()) {
             String selfName = mc.player == null ? "null" : mc.player.getName().getString();
             info(
-                "HL DEBUG: name='%s' isSelf=%s selfName='%s' isFriend=%s isEnemy=%s color=%s",
-                name,
-                isSelf(name),
-                selfName,
-                Friends.get().get(name) != null,
-                Enemies.get().isEnemy(name),
-                color == null ? "null" : (color.r + "," + color.g + "," + color.b)
+                    "HL DEBUG: name='%s' isSelf=%s selfName='%s' isFriend=%s isEnemy=%s color=%s",
+                    name,
+                    isSelf(name),
+                    selfName,
+                    Friends.get().get(name) != null,
+                    Enemies.get().isEnemy(name),
+                    color == null ? "null" : (color.r + "," + color.g + "," + color.b)
             );
         }
 
@@ -205,10 +217,59 @@ public class ChatHighlighter extends Module {
     }
 
     private SettingColor colorFor(String name) {
-        if (highlightSelf.get() && isSelf(name)) return ThemeColorUtils.resolve(selfColor.get(), selfColorUseTheme.get());
-        if (highlightFriends.get() && Friends.get().get(name) != null) return ThemeColorUtils.resolve(friendColor.get(), friendColorUseTheme.get());
-        if (highlightEnemies.get() && Enemies.get().isEnemy(name)) return ThemeColorUtils.resolve(enemyColor.get(), enemyColorUseTheme.get());
+        SettingColor custom = customColorFor(name);
+        if (custom != null) return custom;
+        if (highlightSelf.get() && isSelf(name)) return selfColor.get();
+        if (highlightFriends.get() && Friends.get().get(name) != null) return friendColor.get();
+        if (highlightEnemies.get() && Enemies.get().isEnemy(name)) return enemyColor.get();
+        if (highlightNearby.get() && isNearby(name)) return nearbyColor.get();
         return null;
+    }
+
+    private SettingColor customColorFor(String name) {
+        for (String entry : customPlayers.get()) {
+            if (entry == null) continue;
+            String trimmed = entry.trim();
+            if (trimmed.isEmpty()) continue;
+
+            String entryName = trimmed;
+            SettingColor entryColor = null;
+
+            int split = trimmed.lastIndexOf(':');
+            if (split > 0) {
+                SettingColor parsed = parseHex(trimmed.substring(split + 1).trim());
+                if (parsed != null) {
+                    entryName = trimmed.substring(0, split).trim();
+                    entryColor = parsed;
+                }
+            }
+
+            if (!entryName.equalsIgnoreCase(name)) continue;
+            return entryColor != null ? entryColor : DEFAULT_CUSTOM_COLOR;
+        }
+        return null;
+    }
+
+    private SettingColor parseHex(String hex) {
+        if (hex.startsWith("#")) hex = hex.substring(1);
+        if (hex.length() != 6) return null;
+        try {
+            int rgb = Integer.parseInt(hex.toLowerCase(Locale.ROOT), 16);
+            return new SettingColor((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private boolean isNearby(String name) {
+        if (mc.player == null || mc.world == null) return false;
+        double maxSq = nearbyRange.get() * nearbyRange.get();
+        for (PlayerEntity other : mc.world.getPlayers()) {
+            if (other == mc.player) continue;
+            if (!other.getName().getString().equalsIgnoreCase(name)) continue;
+            return mc.player.squaredDistanceTo(other) <= maxSq;
+        }
+        return false;
     }
 
     private boolean isSelf(String name) {

@@ -21,13 +21,13 @@ import net.minecraft.item.EnderPearlItem;
 import net.minecraft.item.ExperienceBottleItem;
 import net.minecraft.item.Items;
 
-public class Beyblade extends Module {
+public class CsgoSpin extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
 
     private final Setting<Mode> spinMode = sgGeneral.add(new EnumSetting.Builder<Mode>()
             .name("spin-mode")
             .description("The way in which to spin you.")
-            .defaultValue(Mode.Beyblade)
+            .defaultValue(Mode.CSGO)
             .build());
 
     private final Setting<Double> speed = sgGeneral.add(new DoubleSetting.Builder()
@@ -36,21 +36,21 @@ public class Beyblade extends Module {
             .defaultValue(20)
             .sliderMin(0.0)
             .sliderMax(50.0)
-            .visible(() -> spinMode.get() == Mode.FloRida)
+            .visible(() -> spinMode.get() == Mode.CS2)
             .build());
 
     private final Setting<AntiDesyncTrigger> antiDesync = sgGeneral.add(new EnumSetting.Builder<AntiDesyncTrigger>()
             .name("anti-desync")
             .description("Stops spinning on some triggers.")
             .defaultValue(AntiDesyncTrigger.All)
-            .visible(() -> spinMode.get() == Mode.Beyblade)
+            .visible(() -> spinMode.get() == Mode.CSGO)
             .build());
 
     private final Setting<Boolean> yaw = sgGeneral.add(new BoolSetting.Builder()
             .name("yaw")
             .description("Spin around.")
             .defaultValue(true)
-            .visible(() -> spinMode.get() == Mode.Beyblade)
+            .visible(() -> spinMode.get() == Mode.CSGO)
             .build());
 
     private final Setting<Integer> ySpeed = sgGeneral.add(new IntSetting.Builder()
@@ -58,14 +58,14 @@ public class Beyblade extends Module {
             .description("The speed at which you rotate.")
             .defaultValue(5)
             .range(1, 100)
-            .visible(() -> spinMode.get() == Mode.Beyblade && yaw.get())
+            .visible(() -> spinMode.get() == Mode.CSGO && yaw.get())
             .build());
 
     private final Setting<Boolean> pitch = sgGeneral.add(new BoolSetting.Builder()
             .name("pitch")
             .description("Spin around.")
             .defaultValue(false)
-            .visible(() -> spinMode.get() == Mode.Beyblade)
+            .visible(() -> spinMode.get() == Mode.CSGO)
             .build());
 
     private final Setting<Integer> pSpeed = sgGeneral.add(new IntSetting.Builder()
@@ -73,11 +73,11 @@ public class Beyblade extends Module {
             .description("The speed at which you rotate.")
             .defaultValue(5)
             .range(1, 100)
-            .visible(() -> spinMode.get() == Mode.Beyblade && pitch.get())
+            .visible(() -> spinMode.get() == Mode.CSGO && pitch.get())
             .build());
 
-    public Beyblade() {
-        super(SixToolsAddon.CATEGORY, "Beyblade", "Tries to rotate you.");
+    public CsgoSpin() {
+        super(SixToolsAddon.CATEGORY, "csgo-spin", "Tries to rotate you.");
     }
 
     private short count = 0;
@@ -93,14 +93,14 @@ public class Beyblade extends Module {
     public void onTick(TickEvent.Post event) {
         assert mc.player != null;
 
-        if (spinMode.get() == Mode.Beyblade) {
-            beyblade();
+        if (spinMode.get() == Mode.CSGO) {
+            csgoSpin();
         } else {
-            floRida();
+            cs2Spin();
         }
     }
 
-    private void beyblade() {
+    private void csgoSpin() {
         switch (antiDesync.get()) {
             case All -> {
                 if (Modules.get().isActive(EXPThrower.class) ||
@@ -147,7 +147,7 @@ public class Beyblade extends Module {
         Rotations.rotate(yaw.get() ? yCount : mc.player.getYaw(), yaw.get() ? pCount : mc.player.getPitch());
     }
 
-    private void floRida() {
+    private void cs2Spin() {
         Modules modules = Modules.get();
         if (!modules.isActive(EXPThrower.class) && !modules.isActive(Quiver.class)
                 && !modules.isActive(EXPThrower.class)) {
@@ -161,8 +161,8 @@ public class Beyblade extends Module {
     }
 
     public enum Mode {
-        Beyblade,
-        FloRida,
+        CSGO,
+        CS2,
     }
 
     public enum AntiDesyncTrigger {
