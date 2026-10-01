@@ -9,17 +9,23 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(MinecraftClient.class)
+@Mixin({MinecraftClient.class})
 public class MixinMinecraftClient {
+   @Inject(
+      method = {"setScreen"},
+      at = {@At("HEAD")},
+      cancellable = true
+   )
+   private void sixtools$silentChestOpen(Screen screen, CallbackInfo ci) {
+      if (screen != null) {
+         Modules modules = Modules.get();
+         if (modules != null) {
+            ChestTrackerModule module = (ChestTrackerModule)modules.get(ChestTrackerModule.class);
+            if (module != null && module.shouldSuppressScreen(screen)) {
+               ci.cancel();
+            }
 
-    @Inject(method = "setScreen", at = @At("HEAD"), cancellable = true)
-    private void sixtools$silentChestOpen(Screen screen, CallbackInfo ci) {
-        if (screen == null) return;
-
-        Modules modules = Modules.get();
-        if (modules == null) return;
-
-        ChestTrackerModule module = modules.get(ChestTrackerModule.class);
-        if (module != null && module.shouldSuppressScreen(screen)) ci.cancel();
-    }
+         }
+      }
+   }
 }

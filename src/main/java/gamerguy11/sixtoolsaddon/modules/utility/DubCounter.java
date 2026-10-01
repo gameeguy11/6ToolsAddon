@@ -10,111 +10,90 @@ import meteordevelopment.meteorclient.settings.SettingGroup;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.entity.ChestBlockEntity;
-import net.minecraft.client.world.ClientWorld;
 import net.minecraft.world.chunk.WorldChunk;
-
-import static meteordevelopment.meteorclient.MeteorClient.mc;
+import net.minecraft.client.world.ClientWorld;
 
 public class DubCounter extends Module {
-    public SettingGroup sgGeneral = settings.getDefaultGroup();
+   public SettingGroup sgGeneral;
+   private final Setting<CountMode> countMode;
+   private final Setting<Integer> radius;
+   private final Setting<Boolean> chatFeedback;
+   public int lastDubs;
+   public int lastNormalChests;
+   public CountMode lastMode;
 
-    private final Setting<CountMode> countMode = sgGeneral.add(new EnumSetting.Builder<CountMode>()
-        .name("count-mode")
-        .description("The way the chests are counted.")
-        .defaultValue(CountMode.Loaded)
-        .build()
-    );
+   public DubCounter() {
+      super(SixToolsAddon.CATEGORY, "dub-counter", "Counts how many double chests are nearby.");
+      this.sgGeneral = this.settings.getDefaultGroup();
+      this.countMode = this.sgGeneral.add(((EnumSetting.Builder)((EnumSetting.Builder)((EnumSetting.Builder)(new EnumSetting.Builder()).name("count-mode")).description("The way the chests are counted.")).defaultValue(DubCounter.CountMode.Loaded)).build());
+      this.radius = this.sgGeneral.add(((IntSetting.Builder)((IntSetting.Builder)((IntSetting.Builder)((IntSetting.Builder)(new IntSetting.Builder()).name("radius")).description("Chunk radius to scan around you when count-mode is Rendered.")).defaultValue(8)).min(1).sliderMax(32).visible(() -> this.countMode.get() == DubCounter.CountMode.Rendered)).build());
+      this.chatFeedback = this.sgGeneral.add(((BoolSetting.Builder)((BoolSetting.Builder)((BoolSetting.Builder)(new BoolSetting.Builder()).name("chat-feedback")).description("Prints the result in chat as well as updating the HUD element.")).defaultValue(true)).build());
+      this.lastDubs = -1;
+      this.lastNormalChests = -1;
+      this.lastMode = null;
+   }
 
-    private final Setting<Integer> radius = sgGeneral.add(new IntSetting.Builder()
-        .name("radius")
-        .description("Chunk radius to scan around you when count-mode is Rendered.")
-        .defaultValue(8)
-        .min(1)
-        .sliderMax(32)
-        .visible(() -> countMode.get() == CountMode.Rendered)
-        .build()
-    );
+   public void onActivate() {
+      this.count();
+      this.toggle();
+   }
 
-    private final Setting<Boolean> chatFeedback = sgGeneral.add(new BoolSetting.Builder()
-        .name("chat-feedback")
-        .description("Prints the result in chat as well as updating the HUD element.")
-        .defaultValue(true)
-        .build()
-    );
+   private void count() {
+      int length = this.countMode.get() == DubCounter.CountMode.Rendered ? this.countRendered() : this.countLoaded();
+      int dubs = length / 2;
+      this.lastDubs = dubs;
+      this.lastNormalChests = length;
+      this.lastMode = (CountMode)this.countMode.get();
+      DubCounterCommand.lastDubs = dubs;
+      DubCounterCommand.lastNormalChests = length;
+      DubCounterCommand.lastMode = DubCounterCommand.CountMode.valueOf(((CountMode)this.countMode.get()).name());
+      if ((Boolean)this.chatFeedback.get()) {
+         this.info("There are roughly (highlight)%s(default) (%s normal chests) %s double chests.", new Object[]{dubs, length, this.countMode.get() == DubCounter.CountMode.Rendered ? "rendered" : "loaded"});
+      }
 
-    public int lastDubs = -1;
-    public int lastNormalChests = -1;
-    public CountMode lastMode = null;
+   }
 
-    public DubCounter() {
-        super(SixToolsAddon.CATEGORY, "dub-counter", "Counts how many double chests are nearby.");
-    }
+   private int countLoaded() {
+      return this.mc.world == null ? 0 : this.scanChunksAround(Integer.MAX_VALUE);
+   }
 
-    @Override
-    public void onActivate() {
-        count();
-        toggle();
-    }
+   private int countRendered() {
+      return this.mc.world == null ? 0 : this.scanChunksAround((Integer)this.radius.get());
+   }
 
-    private void count() {
-        int length = countMode.get() == CountMode.Rendered ? countRendered() : countLoaded();
-        int dubs = length / 2;
+   private int scanChunksAround(int chunkRadius) {
+      ClientWorld world = this.mc.world;
+      if (world != null && this.mc.player != null) {
+         int playerChunkX = this.mc.player.getChunkPos().x;
+         int playerChunkZ = this.mc.player.getChunkPos().z;
+         int count = 0;
+         int scanRadius = chunkRadius == Integer.MAX_VALUE ? 32 : chunkRadius;
 
-        lastDubs = dubs;
-        lastNormalChests = length;
-        lastMode = countMode.get();
-
-        DubCounterCommand.lastDubs = dubs;
-        DubCounterCommand.lastNormalChests = length;
-        DubCounterCommand.lastMode = DubCounterCommand.CountMode.valueOf(countMode.get().name());
-
-        if (chatFeedback.get()) {
-            info(
-                "There are roughly (highlight)%s(default) (%s normal chests) %s double chests.",
-                dubs,
-                length,
-                countMode.get() == CountMode.Rendered ? "rendered" : "loaded"
-            );
-        }
-    }
-
-    private int countLoaded() {
-        if (mc.world == null) return 0;
-        return scanChunksAround(Integer.MAX_VALUE);
-    }
-
-    private int countRendered() {
-        if (mc.world == null) return 0;
-        return scanChunksAround(radius.get());
-    }
-
-    private int scanChunksAround(int chunkRadius) {
-        ClientWorld world = mc.world;
-        if (world == null || mc.player == null) return 0;
-
-        int playerChunkX = mc.player.getChunkPos().x;
-        int playerChunkZ = mc.player.getChunkPos().z;
-
-        int count = 0;
-
-        int scanRadius = chunkRadius == Integer.MAX_VALUE ? 32 : chunkRadius;
-
-        for (int dx = -scanRadius; dx <= scanRadius; dx++) {
-            for (int dz = -scanRadius; dz <= scanRadius; dz++) {
-                WorldChunk chunk = world.getChunk(playerChunkX + dx, playerChunkZ + dz);
-                if (chunk == null) continue;
-
-                for (BlockEntity blockEntity : chunk.getBlockEntities().values()) {
-                    if (blockEntity instanceof ChestBlockEntity) count++;
-                }
+         for(int dx = -scanRadius; dx <= scanRadius; ++dx) {
+            for(int dz = -scanRadius; dz <= scanRadius; ++dz) {
+               WorldChunk chunk = world.getChunk(playerChunkX + dx, playerChunkZ + dz);
+               if (chunk != null) {
+                  for(BlockEntity blockEntity : chunk.getBlockEntities().values()) {
+                     if (blockEntity instanceof ChestBlockEntity) {
+                        ++count;
+                     }
+                  }
+               }
             }
-        }
+         }
 
-        return count;
-    }
+         return count;
+      } else {
+         return 0;
+      }
+   }
 
-    public enum CountMode {
-        Rendered,
-        Loaded
-    }
+   public static enum CountMode {
+      Rendered,
+      Loaded;
+
+      private static CountMode[] $values() {
+         return new CountMode[]{Rendered, Loaded};
+      }
+   }
 }

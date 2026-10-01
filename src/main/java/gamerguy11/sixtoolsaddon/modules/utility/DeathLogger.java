@@ -12,52 +12,44 @@ import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.player.PlayerUtils;
 import meteordevelopment.orbit.EventHandler;
 
-import static meteordevelopment.meteorclient.MeteorClient.mc;
-
 public class DeathLogger extends Module {
-    private int lastX, lastY, lastZ;
-    private String lastDimension = "Overworld";
-    private boolean hasPosition;
-    private boolean wasAlive = true;
+   private int lastX;
+   private int lastY;
+   private int lastZ;
+   private String lastDimension = "Overworld";
+   private boolean hasPosition;
+   private boolean wasAlive = true;
 
-    public DeathLogger() {
-        super(
-            SixToolsAddon.CATEGORY,
-            "death-logger",
-            "Logs the coordinates and dimension of every death to a text file."
-        );
-    }
+   public DeathLogger() {
+      super(SixToolsAddon.CATEGORY, "death-logger", "Logs the coordinates and dimension of every death to a text file.");
+   }
 
-    @Override
-    public void onActivate() {
-        hasPosition = false;
-        wasAlive = true;
-    }
+   public void onActivate() {
+      this.hasPosition = false;
+      this.wasAlive = true;
+   }
 
-    @EventHandler
-    private void onTick(TickEvent.Pre event) {
-        if (mc.player == null || mc.world == null) return;
+   @EventHandler
+   private void onTick(TickEvent.Pre event) {
+      if (this.mc.player != null && this.mc.world != null) {
+         boolean alive = this.mc.player.getHealth() > 0.0F && !this.mc.player.isDead();
+         if (alive) {
+            this.lastX = this.mc.player.getBlockX();
+            this.lastY = this.mc.player.getBlockY();
+            this.lastZ = this.mc.player.getBlockZ();
+            this.lastDimension = PlayerUtils.getDimension().name();
+            this.hasPosition = true;
+         } else if (this.wasAlive && this.hasPosition) {
+            DeathLogStore.append(DeathRecord.now(this.lastX, this.lastY, this.lastZ, this.lastDimension));
+         }
 
-        boolean alive = mc.player.getHealth() > 0 && !mc.player.isDead();
+         this.wasAlive = alive;
+      }
+   }
 
-        if (alive) {
-            lastX = mc.player.getBlockX();
-            lastY = mc.player.getBlockY();
-            lastZ = mc.player.getBlockZ();
-            lastDimension = PlayerUtils.getDimension().name();
-            hasPosition = true;
-        } else if (wasAlive && hasPosition) {
-
-            DeathLogStore.append(DeathRecord.now(lastX, lastY, lastZ, lastDimension));
-        }
-
-        wasAlive = alive;
-    }
-
-    @Override
-    public WWidget getWidget(GuiTheme theme) {
-        WButton button = theme.button("View Death Log");
-        button.action = () -> mc.setScreen(new DeathLogScreen(theme));
-        return button;
-    }
+   public WWidget getWidget(GuiTheme theme) {
+      WButton button = theme.button("View Death Log");
+      button.action = () -> this.mc.setScreen(new DeathLogScreen(theme));
+      return button;
+   }
 }

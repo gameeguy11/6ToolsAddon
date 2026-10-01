@@ -9,24 +9,33 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(value = WDropdown.class, remap = false)
+@Mixin(
+   value = {WDropdown.class},
+   remap = false
+)
 public abstract class WDropdownClickThroughMixin {
+   @Shadow
+   protected boolean expanded;
+   @Unique
+   private boolean meteorfix$wasExpanded;
 
-    @Shadow
-    protected boolean expanded;
+   @Inject(
+      method = {"onMouseClicked"},
+      at = {@At("HEAD")}
+   )
+   private void meteorfix$captureExpanded(Click click, boolean doubled, CallbackInfoReturnable cir) {
+      this.meteorfix$wasExpanded = this.expanded;
+   }
 
-    @Unique
-    private boolean meteorfix$wasExpanded;
+   @Inject(
+      method = {"onMouseClicked"},
+      at = {@At("RETURN")},
+      cancellable = true
+   )
+   private void meteorfix$swallowWhileOpen(Click click, boolean doubled, CallbackInfoReturnable cir) {
+      if (this.meteorfix$wasExpanded && !cir.getReturnValueZ()) {
+         cir.setReturnValue(true);
+      }
 
-    @Inject(method = "onMouseClicked", at = @At("HEAD"))
-    private void meteorfix$captureExpanded(Click click, boolean doubled, CallbackInfoReturnable<Boolean> cir) {
-        meteorfix$wasExpanded = expanded;
-    }
-
-    @Inject(method = "onMouseClicked", at = @At("RETURN"), cancellable = true)
-    private void meteorfix$swallowWhileOpen(Click click, boolean doubled, CallbackInfoReturnable<Boolean> cir) {
-        if (meteorfix$wasExpanded && !cir.getReturnValueZ()) {
-            cir.setReturnValue(true);
-        }
-    }
+   }
 }

@@ -1,9 +1,24 @@
 package gamerguy11.sixtoolsaddon.modules;
 
-import gamerguy11.sixtoolsaddon.SixToolsAddon;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
+import gamerguy11.sixtoolsaddon.SixToolsAddon;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.lang.reflect.Type;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import meteordevelopment.meteorclient.events.world.TickEvent;
 import meteordevelopment.meteorclient.settings.BoolSetting;
 import meteordevelopment.meteorclient.settings.EnumSetting;
@@ -14,430 +29,470 @@ import meteordevelopment.meteorclient.settings.StringSetting;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.player.ChatUtils;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
+import meteordevelopment.orbit.EventHandler;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.screen.ScreenHandler;
+import net.minecraft.screen.GenericContainerScreenHandler;
+import net.minecraft.screen.PlayerScreenHandler;
+import net.minecraft.screen.ShulkerBoxScreenHandler;
+import net.minecraft.screen.slot.Slot;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
-import net.minecraft.registry.Registries;
-import net.minecraft.screen.GenericContainerScreenHandler;
-import net.minecraft.screen.PlayerScreenHandler;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.screen.ShulkerBoxScreenHandler;
-import net.minecraft.screen.slot.Slot;
 import net.minecraft.util.Identifier;
-import meteordevelopment.orbit.EventHandler;
-
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.lang.reflect.Type;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import net.minecraft.registry.Registries;
 
 public class InventorySorterModule extends Module {
-    private static final Path SAVE_FILE = FabricLoader.getInstance()
-        .getConfigDir()
-        .resolve("inventory-sorter")
-        .resolve("inventories.json");
+   private static final Path SAVE_FILE = FabricLoader.getInstance().getConfigDir().resolve("inventory-sorter").resolve("inventories.json");
+   private final SettingGroup sgGeneral;
+   private final Setting<Boolean> chatNotify;
+   private final Setting<Integer> tickRate;
+   private final Setting<Boolean> autoDisable;
+   private final SettingGroup sgAutoLoot;
+   private final Setting<AutoLootMode> autoLootMode;
+   private final Setting<String> rekitTarget;
+   private final Gson gson;
+   private final HashMap<String, HashMap<Integer, Item>> inventories;
+   private final ArrayDeque<SlotMove> jobs;
+   private int ticks;
+   private boolean isSorted;
+   private boolean retriedThisPass;
+   private String activeInventoryKey;
+   private final ArrayDeque<Integer> lootJobs;
+   private ScreenHandler lastSeenHandler;
+   private boolean pendingRekitSort;
+   private boolean autoLootSort;
 
-    private final SettingGroup sgGeneral = settings.getDefaultGroup();
+   public InventorySorterModule() {
+      super(SixToolsAddon.CATEGORY, "inventory-sorter", "Auto-sorts your inventory back into a saved inventory layout.");
+      this.sgGeneral = this.settings.getDefaultGroup();
+      this.chatNotify = this.sgGeneral.add(((BoolSetting.Builder)((BoolSetting.Builder)((BoolSetting.Builder)(new BoolSetting.Builder()).name("chat-notify")).description("Sends a chat message when an inventory is saved or finishes sorting.")).defaultValue(true)).build());
+      this.tickRate = this.sgGeneral.add(((IntSetting.Builder)((IntSetting.Builder)((IntSetting.Builder)(new IntSetting.Builder()).name("tick-rate")).description("Ticks to wait between each slot move. Higher is slower but less likely to trip anti-cheat.")).defaultValue(2)).range(1, 20).sliderRange(1, 20).build());
+      this.autoDisable = this.sgGeneral.add(((BoolSetting.Builder)((BoolSetting.Builder)((BoolSetting.Builder)(new BoolSetting.Builder()).name("auto-disable")).description("Turns the module off by itself once the inventory finishes sorting, instead of continuing to watch for changes.")).defaultValue(true)).build());
+      this.sgAutoLoot = this.settings.createGroup("Auto-Loot");
+      this.autoLootMode = this.sgAutoLoot.add(((EnumSetting.Builder)((EnumSetting.Builder)((EnumSetting.Builder)(new EnumSetting.Builder()).name("auto-loot")).description("Off: does nothing extra. Refill: whenever you open storage while this module is active, takes any items you're already carrying, topping up what you have. Rekit: takes items belonging to the chosen saved inventory below from any storage you open, then arranges your inventory into that layout once you close it.")).defaultValue(InventorySorterModule.AutoLootMode.Off)).build());
+      this.rekitTarget = this.sgAutoLoot.add(((StringSetting.Builder)((StringSetting.Builder)((StringSetting.Builder)((StringSetting.Builder)(new StringSetting.Builder()).name("rekit-inventory")).description("Name of the saved inventory (see the inventories list) to pull items for and arrange into, when auto-loot is set to Rekit.")).defaultValue("")).visible(() -> this.autoLootMode.get() == InventorySorterModule.AutoLootMode.Rekit)).build());
+      this.gson = (new GsonBuilder()).setPrettyPrinting().create();
+      this.inventories = new HashMap();
+      this.jobs = new ArrayDeque();
+      this.ticks = 0;
+      this.isSorted = true;
+      this.retriedThisPass = false;
+      this.activeInventoryKey = null;
+      this.lootJobs = new ArrayDeque();
+      this.lastSeenHandler = null;
+      this.pendingRekitSort = false;
+      this.autoLootSort = false;
+      this.loadFromDisk();
+   }
 
-    private final Setting<Boolean> chatNotify = sgGeneral.add(new BoolSetting.Builder()
-        .name("chat-notify")
-        .description("Sends a chat message when an inventory is saved or finishes sorting.")
-        .defaultValue(true)
-        .build()
-    );
+   public void onActivate() {
+      this.loadFromDisk();
+   }
 
-    private final Setting<Integer> tickRate = sgGeneral.add(new IntSetting.Builder()
-        .name("tick-rate")
-        .description("Ticks to wait between each slot move. Higher is slower but less likely to trip anti-cheat.")
-        .defaultValue(2)
-        .range(1, 20)
-        .sliderRange(1, 20)
-        .build()
-    );
+   public void onDeactivate() {
+      this.ticks = 0;
+      this.jobs.clear();
+      this.isSorted = true;
+      this.retriedThisPass = false;
+      this.lootJobs.clear();
+      this.lastSeenHandler = null;
+      this.pendingRekitSort = false;
+      this.autoLootSort = false;
+   }
 
-    private final Setting<Boolean> autoDisable = sgGeneral.add(new BoolSetting.Builder()
-        .name("auto-disable")
-        .description("Turns the module off by itself once the inventory finishes sorting, instead of continuing to watch for changes.")
-        .defaultValue(true)
-        .build()
-    );
+   public void notifyInfo(String message, Object... args) {
+      this.info(message, args);
+   }
 
-    private final SettingGroup sgAutoLoot = settings.createGroup("Auto-Loot");
+   public void notifyError(String message, Object... args) {
+      this.error(message, args);
+   }
 
-    public enum AutoLootMode {
-        Off,
-        Refill,
-        Rekit
-    }
+   public void notifySaveResult(boolean overwritten, String name) {
+      if ((Boolean)this.chatNotify.get()) {
+         this.info(overwritten ? "Overwrote inventory (highlight)%s(default)." : "Saved inventory (highlight)%s(default).", new Object[]{name});
+      }
+   }
 
-    private final Setting<AutoLootMode> autoLootMode = sgAutoLoot.add(new EnumSetting.Builder<AutoLootMode>()
-        .name("auto-loot")
-        .description("Off: does nothing extra. Refill: whenever you open storage while this module is active, takes any items you're already carrying, topping up what you have. Rekit: takes items belonging to the chosen saved inventory below from any storage you open, then arranges your inventory into that layout once you close it.")
-        .defaultValue(AutoLootMode.Off)
-        .build()
-    );
+   public boolean hasInventory(String name) {
+      return this.inventories.containsKey(name);
+   }
 
-    private final Setting<String> rekitTarget = sgAutoLoot.add(new StringSetting.Builder()
-        .name("rekit-inventory")
-        .description("Name of the saved inventory (see the inventories list) to pull items for and arrange into, when auto-loot is set to Rekit.")
-        .defaultValue("")
-        .visible(() -> autoLootMode.get() == AutoLootMode.Rekit)
-        .build()
-    );
+   public List<String> inventoryNames() {
+      return new ArrayList(this.inventories.keySet());
+   }
 
-    private record SlotMove(int from, int to) {}
+   public void deleteInventory(String name) {
+      this.inventories.remove(name);
+      this.saveToDisk();
+   }
 
-    private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
-    private final HashMap<String, HashMap<Integer, Item>> inventories = new HashMap<>();
-    private final ArrayDeque<SlotMove> jobs = new ArrayDeque<>();
+   public void clearInventories() {
+      this.inventories.clear();
+      this.saveToDisk();
+   }
 
-    private int ticks = 0;
-    private boolean isSorted = true;
-    private boolean retriedThisPass = false;
-    private String activeInventoryKey = null;
+   public boolean saveInventory(String name) {
+      if (this.mc.player == null) {
+         return false;
+      } else {
+         ScreenHandler var3 = this.mc.player.currentScreenHandler;
+         if (var3 instanceof PlayerScreenHandler) {
+            PlayerScreenHandler handler = (PlayerScreenHandler)var3;
+            HashMap var6 = new HashMap();
 
-    private final ArrayDeque<Integer> lootJobs = new ArrayDeque<>();
-    private ScreenHandler lastSeenHandler = null;
-    private boolean pendingRekitSort = false;
-    private boolean autoLootSort = false;
-
-    public InventorySorterModule() {
-        super(SixToolsAddon.CATEGORY, "inventory-sorter", "Auto-sorts your inventory back into a saved inventory layout.");
-
-        loadFromDisk();
-    }
-
-    @Override
-    public void onActivate() {
-        loadFromDisk();
-    }
-
-    @Override
-    public void onDeactivate() {
-        ticks = 0;
-        jobs.clear();
-        isSorted = true;
-        retriedThisPass = false;
-
-        lootJobs.clear();
-        lastSeenHandler = null;
-        pendingRekitSort = false;
-        autoLootSort = false;
-    }
-
-    public void notifyInfo(String message, Object... args) {
-        info(message, args);
-    }
-
-    public void notifyError(String message, Object... args) {
-        error(message, args);
-    }
-
-    public void notifySaveResult(boolean overwritten, String name) {
-        if (!chatNotify.get()) return;
-        info(overwritten ? "Overwrote inventory (highlight)%s(default)." : "Saved inventory (highlight)%s(default).", name);
-    }
-
-    public boolean hasInventory(String name) {
-        return inventories.containsKey(name);
-    }
-
-    public List<String> inventoryNames() {
-        return new ArrayList<>(inventories.keySet());
-    }
-
-    public void deleteInventory(String name) {
-        inventories.remove(name);
-        saveToDisk();
-    }
-
-    public void clearInventories() {
-        inventories.clear();
-        saveToDisk();
-    }
-
-    public boolean saveInventory(String name) {
-        if (mc.player == null) return false;
-        if (!(mc.player.currentScreenHandler instanceof PlayerScreenHandler handler)) return false;
-
-        HashMap<Integer, Item> snapshot = new HashMap<>();
-        for (int slot = PlayerScreenHandler.EQUIPMENT_START; slot < handler.slots.size(); slot++) {
-            ItemStack stack = handler.getSlot(slot).getStack();
-            if (!stack.isEmpty() && !stack.isOf(Items.AIR)) {
-                snapshot.put(slot, stack.getItem());
-            }
-        }
-
-        inventories.put(name, snapshot);
-        saveToDisk();
-
-        return true;
-    }
-
-    public void loadInventory(String name) {
-        loadInventory(name, true);
-    }
-
-    private void loadInventory(String name, boolean resetRetry) {
-        if (mc.player == null) return;
-        if (!(mc.player.currentScreenHandler instanceof PlayerScreenHandler handler)) return;
-
-        HashMap<Integer, Item> inventory = inventories.get(name);
-        if (inventory == null || inventory.isEmpty()) {
-            error("No inventory named (highlight)%s(default) is saved.", name);
-            return;
-        }
-
-        jobs.clear();
-        activeInventoryKey = name;
-        if (resetRetry) retriedThisPass = false;
-        isSorted = false;
-
-        List<Integer> settled = new ArrayList<>();
-        HashMap<Integer, ItemStack> pendingStacks = new HashMap<>();
-
-        for (int to = PlayerScreenHandler.EQUIPMENT_START; to < handler.slots.size(); to++) {
-            Item wanted = inventory.get(to);
-            if (wanted == null) continue;
-
-            ItemStack current = pendingStacks.containsKey(to) ? pendingStacks.get(to) : handler.getSlot(to).getStack();
-            if (current.isOf(wanted)) {
-                settled.add(to);
-                continue;
+            for(int slot = 5; slot < handler.slots.size(); ++slot) {
+               ItemStack stack = handler.getSlot(slot).getStack();
+               if (!stack.isEmpty() && !stack.isOf(Items.AIR)) {
+                  var6.put(slot, stack.getItem());
+               }
             }
 
-            for (int from = PlayerScreenHandler.EQUIPMENT_START; from < handler.slots.size(); from++) {
-                if (from == to || settled.contains(from)) continue;
+            this.inventories.put(name, var6);
+            this.saveToDisk();
+            return true;
+         } else {
+            return false;
+         }
+      }
+   }
 
-                ItemStack occupying = pendingStacks.containsKey(from)
-                    ? pendingStacks.get(from)
-                    : handler.getSlot(from).getStack();
+   public void loadInventory(String name) {
+      this.loadInventory(name, true);
+   }
 
-                if (!occupying.isOf(wanted)) continue;
+   private void loadInventory(String name, boolean resetRetry) {
+      if (this.mc.player != null) {
+         ScreenHandler var4 = this.mc.player.currentScreenHandler;
+         if (var4 instanceof PlayerScreenHandler) {
+            PlayerScreenHandler handler = (PlayerScreenHandler)var4;
+            HashMap<Integer, Item> inventory = (HashMap)this.inventories.get(name);
+            if (inventory != null && !inventory.isEmpty()) {
+               this.jobs.clear();
+               this.activeInventoryKey = name;
+               if (resetRetry) {
+                  this.retriedThisPass = false;
+               }
 
-                if (inventory.get(from) != null && occupying.isOf(inventory.get(from))) {
-                    settled.add(from);
-                    continue;
-                }
+               this.isSorted = false;
+               List<Integer> settled = new ArrayList();
+               HashMap<Integer, ItemStack> pendingStacks = new HashMap();
 
-                if (!current.isEmpty()) {
-                    settled.add(to);
-                    pendingStacks.put(from, current);
-                } else {
-                    settled.add(to);
-                    settled.add(from);
-                    pendingStacks.remove(from);
-                }
+               for(int to = 5; to < handler.slots.size(); ++to) {
+                  Item wanted = (Item)inventory.get(to);
+                  if (wanted != null) {
+                     ItemStack current = pendingStacks.containsKey(to) ? (ItemStack)pendingStacks.get(to) : handler.getSlot(to).getStack();
+                     if (current.isOf(wanted)) {
+                        settled.add(to);
+                     } else {
+                        for(int from = 5; from < handler.slots.size(); ++from) {
+                           if (from != to && !settled.contains(from)) {
+                              ItemStack occupying = pendingStacks.containsKey(from) ? (ItemStack)pendingStacks.get(from) : handler.getSlot(from).getStack();
+                              if (occupying.isOf(wanted)) {
+                                 if (inventory.get(from) == null || !occupying.isOf((Item)inventory.get(from))) {
+                                    if (!current.isEmpty()) {
+                                       settled.add(to);
+                                       pendingStacks.put(from, current);
+                                    } else {
+                                       settled.add(to);
+                                       settled.add(from);
+                                       pendingStacks.remove(from);
+                                    }
 
-                jobs.addLast(new SlotMove(from, to));
-                break;
-            }
-        }
-    }
+                                    this.jobs.addLast(new SlotMove(from, to));
+                                    break;
+                                 }
 
-    private boolean isFullySorted(String name) {
-        if (inventories.isEmpty() || name == null) return true;
-        if (mc.player == null) return true;
-        if (!inventories.containsKey(name)) return true;
-        if (!(mc.player.currentScreenHandler instanceof PlayerScreenHandler handler)) return true;
+                                 settled.add(from);
+                              }
+                           }
+                        }
+                     }
+                  }
+               }
 
-        HashMap<Integer, Item> inventory = inventories.get(name);
-        for (int slot = PlayerScreenHandler.EQUIPMENT_START; slot < handler.slots.size(); slot++) {
-            Item wanted = inventory.get(slot);
-            if (wanted == null) continue;
-            if (!handler.getSlot(slot).getStack().isOf(wanted)) return false;
-        }
-
-        return true;
-    }
-
-    @EventHandler
-    private void onTick(TickEvent.Pre event) {
-        if (mc.player == null) return;
-        ScreenHandler handler = mc.player.currentScreenHandler;
-
-        if (handler != lastSeenHandler) {
-            lastSeenHandler = handler;
-
-            if (isContainerHandler(handler) && autoLootMode.get() != AutoLootMode.Off) {
-                queueAutoLoot(handler);
-            } else if (handler instanceof PlayerScreenHandler && pendingRekitSort) {
-                pendingRekitSort = false;
-                autoLootSort = true;
-                loadInventory(rekitTarget.get());
-            }
-        }
-
-        ticks++;
-        if (ticks < tickRate.get()) return;
-        ticks = 0;
-
-        if (!lootJobs.isEmpty()) {
-            if (isContainerHandler(handler)) {
-                InvUtils.shiftClick().slotId(lootJobs.removeFirst());
-                if (lootJobs.isEmpty()) onLootDrained();
             } else {
-
-                lootJobs.clear();
+               this.error("No inventory named (highlight)%s(default) is saved.", new Object[]{name});
             }
-            return;
-        }
+         }
+      }
+   }
 
-        if (!(handler instanceof PlayerScreenHandler)) return;
+   private boolean isFullySorted(String name) {
+      if (!this.inventories.isEmpty() && name != null) {
+         if (this.mc.player == null) {
+            return true;
+         } else if (!this.inventories.containsKey(name)) {
+            return true;
+         } else {
+            ScreenHandler var3 = this.mc.player.currentScreenHandler;
+            if (var3 instanceof PlayerScreenHandler) {
+               PlayerScreenHandler handler = (PlayerScreenHandler)var3;
+               HashMap var6 = (HashMap)this.inventories.get(name);
 
-        if (!jobs.isEmpty()) {
-            isSorted = false;
-            SlotMove job = jobs.removeFirst();
-            InvUtils.move().fromId(job.from()).toId(job.to());
-            return;
-        }
+               for(int slot = 5; slot < handler.slots.size(); ++slot) {
+                  Item wanted = (Item)var6.get(slot);
+                  if (wanted != null && !handler.getSlot(slot).getStack().isOf(wanted)) {
+                     return false;
+                  }
+               }
 
-        if (isSorted) return;
-
-        if (!isFullySorted(activeInventoryKey)) {
-            if (!retriedThisPass) {
-
-                retriedThisPass = true;
-                loadInventory(activeInventoryKey, false);
-                return;
+               return true;
+            } else {
+               return true;
             }
+         }
+      } else {
+         return true;
+      }
+   }
 
-            isSorted = true;
-            retriedThisPass = false;
-            if (autoLootSort) autoLootSort = false;
-            else autoDisableIfEnabled();
-            return;
-        }
+   @EventHandler
+   private void onTick(TickEvent.Pre event) {
+      if (this.mc.player != null) {
+         ScreenHandler handler = this.mc.player.currentScreenHandler;
+         if (handler != this.lastSeenHandler) {
+            this.lastSeenHandler = handler;
+            if (this.isContainerHandler(handler) && this.autoLootMode.get() != InventorySorterModule.AutoLootMode.Off) {
+               this.queueAutoLoot(handler);
+            } else if (handler instanceof PlayerScreenHandler && this.pendingRekitSort) {
+               this.pendingRekitSort = false;
+               this.autoLootSort = true;
+               this.loadInventory((String)this.rekitTarget.get());
+            }
+         }
 
-        isSorted = true;
-        retriedThisPass = false;
-        if (chatNotify.get()) info("Inventory (highlight)%s(default) sorted.", activeInventoryKey);
-        if (autoLootSort) autoLootSort = false;
-        else autoDisableIfEnabled();
-    }
+         ++this.ticks;
+         if (this.ticks >= (Integer)this.tickRate.get()) {
+            this.ticks = 0;
+            if (!this.lootJobs.isEmpty()) {
+               if (this.isContainerHandler(handler)) {
+                  InvUtils.shiftClick().slotId((Integer)this.lootJobs.removeFirst());
+                  if (this.lootJobs.isEmpty()) {
+                     this.onLootDrained();
+                  }
+               } else {
+                  this.lootJobs.clear();
+               }
 
-    private boolean isContainerHandler(ScreenHandler handler) {
-        return handler instanceof GenericContainerScreenHandler || handler instanceof ShulkerBoxScreenHandler;
-    }
+            } else if (handler instanceof PlayerScreenHandler) {
+               if (!this.jobs.isEmpty()) {
+                  this.isSorted = false;
+                  SlotMove job = (SlotMove)this.jobs.removeFirst();
+                  InvUtils.move().fromId(job.from()).toId(job.to());
+               } else if (!this.isSorted) {
+                  if (!this.isFullySorted(this.activeInventoryKey)) {
+                     if (!this.retriedThisPass) {
+                        this.retriedThisPass = true;
+                        this.loadInventory(this.activeInventoryKey, false);
+                     } else {
+                        this.isSorted = true;
+                        this.retriedThisPass = false;
+                        if (this.autoLootSort) {
+                           this.autoLootSort = false;
+                        } else {
+                           this.autoDisableIfEnabled();
+                        }
 
-    private void queueAutoLoot(ScreenHandler handler) {
-        lootJobs.clear();
+                     }
+                  } else {
+                     this.isSorted = true;
+                     this.retriedThisPass = false;
+                     if ((Boolean)this.chatNotify.get()) {
+                        this.info("Inventory (highlight)%s(default) sorted.", new Object[]{this.activeInventoryKey});
+                     }
 
-        Set<Item> wanted = autoLootMode.get() == AutoLootMode.Rekit ? rekitWantedItems() : refillWantedItems();
-        if (wanted == null || wanted.isEmpty()) return;
+                     if (this.autoLootSort) {
+                        this.autoLootSort = false;
+                     } else {
+                        this.autoDisableIfEnabled();
+                     }
 
-        for (Slot slot : handler.slots) {
+                  }
+               }
+            }
+         }
+      }
+   }
 
-            if (slot.inventory instanceof PlayerInventory) continue;
+   private boolean isContainerHandler(ScreenHandler handler) {
+      return handler instanceof GenericContainerScreenHandler || handler instanceof ShulkerBoxScreenHandler;
+   }
 
-            ItemStack stack = slot.getStack();
-            if (stack.isEmpty() || !wanted.contains(stack.getItem())) continue;
+   private void queueAutoLoot(ScreenHandler handler) {
+      this.lootJobs.clear();
+      Set<Item> wanted = this.autoLootMode.get() == InventorySorterModule.AutoLootMode.Rekit ? this.rekitWantedItems() : this.refillWantedItems();
+      if (wanted != null && !wanted.isEmpty()) {
+         for(Slot slot : handler.slots) {
+            if (!(slot.inventory instanceof PlayerInventory)) {
+               ItemStack stack = slot.getStack();
+               if (!stack.isEmpty() && wanted.contains(stack.getItem())) {
+                  this.lootJobs.addLast(slot.id);
+               }
+            }
+         }
 
-            lootJobs.addLast(slot.id);
-        }
-    }
+      }
+   }
 
-    private Set<Item> refillWantedItems() {
-        Set<Item> wanted = new HashSet<>();
+   private Set<Item> refillWantedItems() {
+      Set<Item> wanted = new HashSet();
 
-        for (int i = 0; i < 36; i++) {
-            ItemStack stack = mc.player.getInventory().getStack(i);
-            if (!stack.isEmpty()) wanted.add(stack.getItem());
-        }
+      for(int i = 0; i < 36; ++i) {
+         ItemStack stack = this.mc.player.getInventory().getStack(i);
+         if (!stack.isEmpty()) {
+            wanted.add(stack.getItem());
+         }
+      }
 
-        return wanted;
-    }
+      return wanted;
+   }
 
-    private Set<Item> rekitWantedItems() {
-        if (rekitTarget.get().isBlank()) {
-            error("Set a (highlight)rekit-inventory(default) name in the module settings.");
+   private Set<Item> rekitWantedItems() {
+      if (((String)this.rekitTarget.get()).isBlank()) {
+         this.error("Set a (highlight)rekit-inventory(default) name in the module settings.", new Object[0]);
+         return null;
+      } else {
+         HashMap<Integer, Item> kit = (HashMap)this.inventories.get(this.rekitTarget.get());
+         if (kit != null && !kit.isEmpty()) {
+            return new HashSet(kit.values());
+         } else {
+            this.error("No saved inventory named (highlight)%s(default) to rekit from.", new Object[]{this.rekitTarget.get()});
             return null;
-        }
+         }
+      }
+   }
 
-        HashMap<Integer, Item> kit = inventories.get(rekitTarget.get());
-        if (kit == null || kit.isEmpty()) {
-            error("No saved inventory named (highlight)%s(default) to rekit from.", rekitTarget.get());
-            return null;
-        }
+   private void onLootDrained() {
+      if (this.autoLootMode.get() == InventorySorterModule.AutoLootMode.Rekit) {
+         this.pendingRekitSort = true;
+         if ((Boolean)this.chatNotify.get()) {
+            this.info("Grabbed items for (highlight)%s(default), arranging once you close this.", new Object[]{this.rekitTarget.get()});
+         }
+      } else if ((Boolean)this.chatNotify.get()) {
+         this.info("Refill complete.", new Object[0]);
+      }
 
-        return new HashSet<>(kit.values());
-    }
+   }
 
-    private void onLootDrained() {
-        if (autoLootMode.get() == AutoLootMode.Rekit) {
-            pendingRekitSort = true;
-            if (chatNotify.get()) info("Grabbed items for (highlight)%s(default), arranging once you close this.", rekitTarget.get());
-        } else if (chatNotify.get()) {
-            info("Refill complete.");
-        }
-    }
+   private void autoDisableIfEnabled() {
+      if ((Boolean)this.autoDisable.get() && this.isActive()) {
+         this.toggle();
+      }
 
-    private void autoDisableIfEnabled() {
-        if (autoDisable.get() && isActive()) toggle();
-    }
+   }
 
-    private void loadFromDisk() {
-        inventories.clear();
+   private void loadFromDisk() {
+      this.inventories.clear();
+      if (Files.exists(SAVE_FILE, new LinkOption[0])) {
+         try {
+            BufferedReader reader = Files.newBufferedReader(SAVE_FILE, StandardCharsets.UTF_8);
 
-        if (!Files.exists(SAVE_FILE)) return;
+            label79: {
+               try {
+                  Type type = new TypeToken<HashMap<String, HashMap<Integer, String>>>() {}.getType();
+                  HashMap<String, HashMap<Integer, String>> raw = (HashMap)this.gson.fromJson(reader, type);
+                  if (raw == null) {
+                     break label79;
+                  }
 
-        try (BufferedReader reader = Files.newBufferedReader(SAVE_FILE, StandardCharsets.UTF_8)) {
-            Type type = new TypeToken<HashMap<String, HashMap<Integer, String>>>() {}.getType();
-            HashMap<String, HashMap<Integer, String>> raw = gson.fromJson(reader, type);
-            if (raw == null) return;
+                  for(Map.Entry entry : raw.entrySet()) {
+                     HashMap<Integer, Item> itemMap = new HashMap();
 
-            for (Map.Entry<String, HashMap<Integer, String>> entry : raw.entrySet()) {
-                HashMap<Integer, Item> itemMap = new HashMap<>();
-                for (Map.Entry<Integer, String> itemEntry : entry.getValue().entrySet()) {
-                    Identifier id = Identifier.of(itemEntry.getValue());
+                     for(Map.Entry itemEntry : ((HashMap<Integer, String>)entry.getValue()).entrySet()) {
+                        Identifier id = Identifier.of((String)itemEntry.getValue());
+                        if (!Registries.ITEM.containsId(id)) {
+                           SixToolsAddon.LOG.warn("Inventory '{}': unknown item id '{}' for slot {}, skipping.", new Object[]{entry.getKey(), itemEntry.getValue(), itemEntry.getKey()});
+                        } else {
+                           itemMap.put((Integer)itemEntry.getKey(), (Item)Registries.ITEM.get(id));
+                        }
+                     }
 
-                    if (!Registries.ITEM.containsId(id)) {
+                     this.inventories.put((String)entry.getKey(), itemMap);
+                  }
+               } catch (Throwable var11) {
+                  if (reader != null) {
+                     try {
+                        reader.close();
+                     } catch (Throwable var10) {
+                        var11.addSuppressed(var10);
+                     }
+                  }
 
-                        SixToolsAddon.LOG.warn("Inventory '{}': unknown item id '{}' for slot {}, skipping.", entry.getKey(), itemEntry.getValue(), itemEntry.getKey());
-                        continue;
-                    }
+                  throw var11;
+               }
 
-                    itemMap.put(itemEntry.getKey(), Registries.ITEM.get(id));
-                }
-                inventories.put(entry.getKey(), itemMap);
+               if (reader != null) {
+                  reader.close();
+               }
+
+               return;
             }
-        } catch (IOException e) {
+
+            if (reader != null) {
+               reader.close();
+            }
+
+         } catch (IOException e) {
             SixToolsAddon.LOG.error("Failed to read inventories.json", e);
-            ChatUtils.error("Failed to read saved inventories, check logs.");
-        }
-    }
+            ChatUtils.error("Failed to read saved inventories, check logs.", new Object[0]);
+         }
+      }
+   }
 
-    private void saveToDisk() {
-        try {
-            Files.createDirectories(SAVE_FILE.getParent());
+   private void saveToDisk() {
+      try {
+         Files.createDirectories(SAVE_FILE.getParent());
+         HashMap<String, HashMap<Integer, String>> raw = new HashMap();
 
-            HashMap<String, HashMap<Integer, String>> raw = new HashMap<>();
-            for (Map.Entry<String, HashMap<Integer, Item>> entry : inventories.entrySet()) {
-                HashMap<Integer, String> nameMap = new HashMap<>();
-                for (Map.Entry<Integer, Item> itemEntry : entry.getValue().entrySet()) {
-                    nameMap.put(itemEntry.getKey(), Registries.ITEM.getId(itemEntry.getValue()).toString());
-                }
-                raw.put(entry.getKey(), nameMap);
+         for(Map.Entry entry : this.inventories.entrySet()) {
+            HashMap<Integer, String> nameMap = new HashMap();
+
+            for(Map.Entry itemEntry : ((HashMap<Integer, Item>)entry.getValue()).entrySet()) {
+               nameMap.put((Integer)itemEntry.getKey(), Registries.ITEM.getId((Item)itemEntry.getValue()).toString());
             }
 
-            try (BufferedWriter writer = Files.newBufferedWriter(SAVE_FILE, StandardCharsets.UTF_8)) {
-                gson.toJson(raw, writer);
+            raw.put((String)entry.getKey(), nameMap);
+         }
+
+         BufferedWriter writer = Files.newBufferedWriter(SAVE_FILE, StandardCharsets.UTF_8);
+
+         try {
+            this.gson.toJson(raw, writer);
+         } catch (Throwable var8) {
+            if (writer != null) {
+               try {
+                  writer.close();
+               } catch (Throwable var7) {
+                  var8.addSuppressed(var7);
+               }
             }
-        } catch (IOException e) {
-            SixToolsAddon.LOG.error("Failed to write inventories.json", e);
-            ChatUtils.error("Failed to save inventories, check logs.");
-        }
-    }
+
+            throw var8;
+         }
+
+         if (writer != null) {
+            writer.close();
+         }
+      } catch (IOException e) {
+         SixToolsAddon.LOG.error("Failed to write inventories.json", e);
+         ChatUtils.error("Failed to save inventories, check logs.", new Object[0]);
+      }
+
+   }
+
+   public static enum AutoLootMode {
+      Off,
+      Refill,
+      Rekit;
+
+      private static AutoLootMode[] $values() {
+         return new AutoLootMode[]{Off, Refill, Rekit};
+      }
+   }
+
+   private static record SlotMove(int from, int to) {
+   }
 }

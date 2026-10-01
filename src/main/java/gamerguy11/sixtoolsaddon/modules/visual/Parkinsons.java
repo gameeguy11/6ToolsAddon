@@ -11,132 +11,154 @@ import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.misc.input.Input;
 import meteordevelopment.meteorclient.utils.misc.input.KeyAction;
 import meteordevelopment.orbit.EventHandler;
-import net.minecraft.client.network.OtherClientPlayerEntity;
 import net.minecraft.entity.Entity;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.network.OtherClientPlayerEntity;
 
 public class Parkinsons extends Module {
-    private final SettingGroup sgGeneral = settings.getDefaultGroup();
+   private final SettingGroup sgGeneral;
+   private final Setting<Double> speed;
+   private float storedYaw;
+   private float storedPitch;
+   private boolean forward;
+   private boolean backward;
+   private boolean left;
+   private boolean right;
+   private boolean up;
+   private boolean down;
 
-    private final Setting<Double> speed = sgGeneral.add(new DoubleSetting.Builder()
-        .name("speed")
-        .description("Camera speed in blocks per tick. 1 = the original (20 blocks per second).")
-        .defaultValue(1.0)
-        .min(0.05)
-        .sliderRange(0.1, 3.0)
-        .build()
-    );
+   public Parkinsons() {
+      super(SixToolsAddon.CATEGORY, "parkinsons", "WARNINGS: your real player stays standing still Don't run it together with any Freecam. Turns itself off when you leave the world.");
+      this.sgGeneral = this.settings.getDefaultGroup();
+      this.speed = this.sgGeneral.add(((DoubleSetting.Builder)((DoubleSetting.Builder)(new DoubleSetting.Builder()).name("speed")).description("Camera speed in blocks per tick. 1 = the original (20 blocks per second).")).defaultValue((double)1.0F).min(0.05).sliderRange(0.1, (double)3.0F).build());
+   }
 
-    private float storedYaw, storedPitch;
-    private boolean forward, backward, left, right, up, down;
+   public void onActivate() {
+      if (this.mc.player != null && this.mc.world != null) {
+         this.storedYaw = this.mc.player.getYaw();
+         this.storedPitch = this.mc.player.getPitch();
+         this.forward = Input.isPressed(this.mc.options.forwardKey);
+         this.backward = Input.isPressed(this.mc.options.backKey);
+         this.left = Input.isPressed(this.mc.options.leftKey);
+         this.right = Input.isPressed(this.mc.options.rightKey);
+         this.up = Input.isPressed(this.mc.options.jumpKey);
+         this.down = Input.isPressed(this.mc.options.sneakKey);
+         this.unpress();
+         OtherClientPlayerEntity freecamEntity = new OtherClientPlayerEntity(this.mc.world, this.mc.player.getGameProfile());
+         freecamEntity.copyPositionAndRotation(this.mc.player);
+         freecamEntity.setYaw(this.mc.player.getYaw());
+         freecamEntity.setPitch(this.mc.player.getPitch());
+         freecamEntity.setNoGravity(true);
+         freecamEntity.noClip = true;
+         freecamEntity.setOnGround(false);
+         this.mc.setCameraEntity(freecamEntity);
+      } else {
+         this.toggle();
+      }
+   }
 
-    public Parkinsons() {
-        super(SixToolsAddon.CATEGORY, "parkinsons",
-            "WARNINGS: your real player stays standing still "
-                + "Don't run it together with any Freecam. Turns itself off when you leave the world.");
-    }
+   @EventHandler
+   public void onTick(TickEvent.Pre event) {
+      if (this.mc.player != null && this.mc.world != null) {
+         Entity camera = this.mc.getCameraEntity();
+         if (camera != null && camera != this.mc.player) {
+            camera.setYaw(this.mc.player.getYaw());
+            camera.setPitch(this.mc.player.getPitch());
+            Vec3d look = Vec3d.fromPolar(0.0F, camera.getYaw()).normalize();
+            Vec3d strafe = (new Vec3d(-look.z, (double)0.0F, look.x)).normalize();
+            Vec3d velocity = Vec3d.ZERO;
+            if (this.forward) {
+               velocity = velocity.add(look);
+            }
 
-    @Override
-    public void onActivate() {
-        if (mc.player == null || mc.world == null) {
-            toggle();
-            return;
-        }
+            if (this.backward) {
+               velocity = velocity.subtract(look);
+            }
 
-        storedYaw = mc.player.getYaw();
-        storedPitch = mc.player.getPitch();
+            if (this.left) {
+               velocity = velocity.subtract(strafe);
+            }
 
-        forward = Input.isPressed(mc.options.forwardKey);
-        backward = Input.isPressed(mc.options.backKey);
-        left = Input.isPressed(mc.options.leftKey);
-        right = Input.isPressed(mc.options.rightKey);
-        up = Input.isPressed(mc.options.jumpKey);
-        down = Input.isPressed(mc.options.sneakKey);
-        unpress();
+            if (this.right) {
+               velocity = velocity.add(strafe);
+            }
 
-        OtherClientPlayerEntity freecamEntity = new OtherClientPlayerEntity(mc.world, mc.player.getGameProfile());
+            if (this.up) {
+               velocity = velocity.add((double)0.0F, (double)1.0F, (double)0.0F);
+            }
 
-        freecamEntity.copyPositionAndRotation(mc.player);
-        freecamEntity.setYaw(mc.player.getYaw());
-        freecamEntity.setPitch(mc.player.getPitch());
-        freecamEntity.setNoGravity(true);
-        freecamEntity.noClip = true;
-        freecamEntity.setOnGround(false);
+            if (this.down) {
+               velocity = velocity.add((double)0.0F, (double)-1.0F, (double)0.0F);
+            }
 
-        mc.setCameraEntity(freecamEntity);
-    }
+            if (velocity.lengthSquared() > (double)0.0F) {
+               velocity = velocity.normalize().multiply((Double)this.speed.get());
+               Vec3d pos = camera.getEntityPos();
+               camera.setPos(pos.x + velocity.x, pos.y + velocity.y, pos.z + velocity.z);
+            }
 
-    @EventHandler
-    public void onTick(TickEvent.Pre event) {
-        if (mc.player == null || mc.world == null) return;
+         }
+      }
+   }
 
-        Entity camera = mc.getCameraEntity();
-        if (camera == null || camera == mc.player) return;
+   @EventHandler
+   public void onKey(KeyEvent event) {
+      if (this.mc.currentScreen == null) {
+         int key = event.key();
+         boolean pressed = event.action != KeyAction.Release;
+         boolean handled = true;
+         if (Input.getKey(this.mc.options.forwardKey) == key) {
+            this.forward = pressed;
+            this.mc.options.forwardKey.setPressed(false);
+         } else if (Input.getKey(this.mc.options.backKey) == key) {
+            this.backward = pressed;
+            this.mc.options.backKey.setPressed(false);
+         } else if (Input.getKey(this.mc.options.leftKey) == key) {
+            this.left = pressed;
+            this.mc.options.leftKey.setPressed(false);
+         } else if (Input.getKey(this.mc.options.rightKey) == key) {
+            this.right = pressed;
+            this.mc.options.rightKey.setPressed(false);
+         } else if (Input.getKey(this.mc.options.jumpKey) == key) {
+            this.up = pressed;
+            this.mc.options.jumpKey.setPressed(false);
+         } else if (Input.getKey(this.mc.options.sneakKey) == key) {
+            this.down = pressed;
+            this.mc.options.sneakKey.setPressed(false);
+         } else {
+            handled = false;
+         }
 
-        camera.setYaw(mc.player.getYaw());
-        camera.setPitch(mc.player.getPitch());
+         if (handled) {
+            event.cancel();
+         }
 
-        Vec3d look = Vec3d.fromPolar(0, camera.getYaw()).normalize();
-        Vec3d strafe = new Vec3d(-look.z, 0, look.x).normalize();
-        Vec3d velocity = Vec3d.ZERO;
+      }
+   }
 
-        if (forward) velocity = velocity.add(look);
-        if (backward) velocity = velocity.subtract(look);
-        if (left) velocity = velocity.subtract(strafe);
-        if (right) velocity = velocity.add(strafe);
-        if (up) velocity = velocity.add(0, 1, 0);
-        if (down) velocity = velocity.add(0, -1, 0);
+   @EventHandler
+   public void onGameLeft(GameLeftEvent event) {
+      if (this.isActive()) {
+         this.toggle();
+      }
 
-        if (velocity.lengthSquared() > 0) {
-            velocity = velocity.normalize().multiply(speed.get());
-            Vec3d pos = camera.getEntityPos();
+   }
 
-            camera.setPos(pos.x + velocity.x, pos.y + velocity.y, pos.z + velocity.z);
-        }
-    }
+   private void unpress() {
+      this.mc.options.forwardKey.setPressed(false);
+      this.mc.options.backKey.setPressed(false);
+      this.mc.options.leftKey.setPressed(false);
+      this.mc.options.rightKey.setPressed(false);
+      this.mc.options.jumpKey.setPressed(false);
+      this.mc.options.sneakKey.setPressed(false);
+   }
 
-    @EventHandler
-    public void onKey(KeyEvent event) {
-        if (mc.currentScreen != null) return;
-
-        int key = event.key();
-        boolean pressed = event.action != KeyAction.Release;
-        boolean handled = true;
-
-        if (Input.getKey(mc.options.forwardKey) == key) { forward = pressed; mc.options.forwardKey.setPressed(false); }
-        else if (Input.getKey(mc.options.backKey) == key) { backward = pressed; mc.options.backKey.setPressed(false); }
-        else if (Input.getKey(mc.options.leftKey) == key) { left = pressed; mc.options.leftKey.setPressed(false); }
-        else if (Input.getKey(mc.options.rightKey) == key) { right = pressed; mc.options.rightKey.setPressed(false); }
-        else if (Input.getKey(mc.options.jumpKey) == key) { up = pressed; mc.options.jumpKey.setPressed(false); }
-        else if (Input.getKey(mc.options.sneakKey) == key) { down = pressed; mc.options.sneakKey.setPressed(false); }
-        else handled = false;
-
-        if (handled) event.cancel();
-    }
-
-    @EventHandler
-    public void onGameLeft(GameLeftEvent event) {
-        if (isActive()) toggle();
-    }
-
-    private void unpress() {
-        mc.options.forwardKey.setPressed(false);
-        mc.options.backKey.setPressed(false);
-        mc.options.leftKey.setPressed(false);
-        mc.options.rightKey.setPressed(false);
-        mc.options.jumpKey.setPressed(false);
-        mc.options.sneakKey.setPressed(false);
-    }
-
-    @Override
-    public void onDeactivate() {
-        forward = backward = left = right = up = down = false;
-
-        if (mc.player == null) return;
-
-        mc.setCameraEntity(mc.player);
-
-        mc.player.setYaw(storedYaw);
-        mc.player.setPitch(storedPitch);
-    }
+   public void onDeactivate() {
+      this.forward = this.backward = this.left = this.right = this.up = this.down = false;
+      if (this.mc.player != null) {
+         this.mc.setCameraEntity(this.mc.player);
+         this.mc.player.setYaw(this.storedYaw);
+         this.mc.player.setPitch(this.storedPitch);
+      }
+   }
 }

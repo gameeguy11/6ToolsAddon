@@ -1,85 +1,80 @@
 package gamerguy11.sixtoolsaddon.modules.visual;
 
 import gamerguy11.sixtoolsaddon.SixToolsAddon;
+import gamerguy11.sixtoolsaddon.mixin.swing.LivingEntitySwingAccessor;
 import meteordevelopment.meteorclient.events.world.TickEvent;
 import meteordevelopment.meteorclient.settings.DoubleSetting;
 import meteordevelopment.meteorclient.settings.Setting;
 import meteordevelopment.meteorclient.settings.SettingGroup;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.orbit.EventHandler;
-import gamerguy11.sixtoolsaddon.mixin.swing.LivingEntitySwingAccessor;
 
 public class SwingSpeed extends Module {
-    private static final float OUT_TICKS_BASE = 3f;
-    private static final float BACK_TICKS_BASE = 3f;
+   private static final float OUT_TICKS_BASE = 3.0F;
+   private static final float BACK_TICKS_BASE = 3.0F;
+   private final SettingGroup sgGeneral;
+   private final Setting<Double> speed;
+   private float progress;
+   private float lastProgress;
+   private boolean animating;
 
-    private final SettingGroup sgGeneral = settings.getDefaultGroup();
+   public SwingSpeed() {
+      super(SixToolsAddon.CATEGORY, "swing-speed", "Slows down the outward part of your arm swing animation. Purely visual, client-side only.");
+      this.sgGeneral = this.settings.getDefaultGroup();
+      this.speed = this.sgGeneral.add(((DoubleSetting.Builder)((DoubleSetting.Builder)(new DoubleSetting.Builder()).name("out-speed")).description("Multiplier for how fast the outward swing plays. 1 = vanilla speed, lower = slower. The return to rest always plays at vanilla speed.")).defaultValue((double)1.0F).min(0.001).sliderMin(0.001).sliderMax((double)5.0F).build());
+      this.progress = 0.0F;
+      this.lastProgress = 0.0F;
+      this.animating = false;
+   }
 
-    private final Setting<Double> speed = sgGeneral.add(new DoubleSetting.Builder()
-            .name("out-speed")
-            .description("Multiplier for how fast the outward swing plays. 1 = vanilla speed, lower = slower. The return to rest always plays at vanilla speed.")
-            .defaultValue(1.0)
-            .min(0.001)
-            .sliderMin(0.001)
-            .sliderMax(5.0)
-            .build()
-    );
+   public void onDeactivate() {
+      this.progress = 0.0F;
+      this.lastProgress = 0.0F;
+      this.animating = false;
+   }
 
-    private float progress = 0f;
-    private float lastProgress = 0f;
-    private boolean animating = false;
+   @EventHandler
+   private void onTick(TickEvent.Post event) {
+      if (this.mc.player != null) {
+         this.lastProgress = this.progress;
+         boolean vanillaSwinging = ((LivingEntitySwingAccessor)this.mc.player).isHandSwinging();
+         if (!this.animating && vanillaSwinging) {
+            this.animating = true;
+            this.progress = 0.0F;
+            this.lastProgress = 0.0F;
+         }
 
-    public SwingSpeed() {
-        super(SixToolsAddon.CATEGORY, "swing-speed", "Slows down the outward part of your arm swing animation. Purely visual, client-side only.");
-    }
+         if (this.animating) {
+            float step;
+            if (this.progress < 0.5F) {
+               step = 0.16666667F * ((Double)this.speed.get()).floatValue();
+            } else {
+               step = 0.16666667F;
+            }
 
-    @Override
-    public void onDeactivate() {
-        progress = 0f;
-        lastProgress = 0f;
-        animating = false;
-    }
+            this.progress += step;
+            if (this.progress >= 1.0F) {
+               this.progress = 0.0F;
+               this.lastProgress = 0.0F;
+               this.animating = false;
+            } else if (this.progress > 0.5F && this.lastProgress < 0.5F) {
+               this.progress = 0.5F;
+            }
 
-    @EventHandler
-    private void onTick(TickEvent.Post event) {
-        if (mc.player == null) return;
+         }
+      }
+   }
 
-        lastProgress = progress;
+   public float getRenderProgress(float tickDelta) {
+      if (!this.animating) {
+         return 0.0F;
+      } else {
+         float delta = this.progress - this.lastProgress;
+         if (delta < 0.0F) {
+            ++delta;
+         }
 
-        boolean vanillaSwinging = ((LivingEntitySwingAccessor) mc.player).isHandSwinging();
-
-        if (!animating && vanillaSwinging) {
-            animating = true;
-            progress = 0f;
-            lastProgress = 0f;
-        }
-
-        if (!animating) return;
-
-        float step;
-        if (progress < 0.5f) {
-            step = (0.5f / OUT_TICKS_BASE) * speed.get().floatValue();
-        } else {
-            step = 0.5f / BACK_TICKS_BASE;
-        }
-
-        progress += step;
-
-        if (progress >= 1f) {
-            progress = 0f;
-            lastProgress = 0f;
-            animating = false;
-        } else if (progress > 0.5f && lastProgress < 0.5f) {
-            progress = 0.5f;
-        }
-    }
-
-    public float getRenderProgress(float tickDelta) {
-        if (!animating) return 0f;
-
-        float delta = progress - lastProgress;
-        if (delta < 0f) delta += 1f;
-
-        return lastProgress + delta * tickDelta;
-    }
+         return this.lastProgress + delta * tickDelta;
+      }
+   }
 }

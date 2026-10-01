@@ -3,31 +3,32 @@ package gamerguy11.sixtoolsaddon.systems.enemies;
 import java.util.Objects;
 
 public class Enemy implements Comparable<Enemy> {
-    public volatile String name;
+   public volatile String name;
 
-    public Enemy(String name) {
-        this.name = name;
-    }
+   public Enemy(String name) {
+      this.name = name;
+   }
 
-    public String getName() {
-        return name;
-    }
+   public String getName() {
+      return this.name;
+   }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        Enemy enemy = (Enemy) o;
-        return name.equalsIgnoreCase(enemy.name);
-    }
+   public boolean equals(Object o) {
+      if (this == o) {
+         return true;
+      } else if (o != null && this.getClass() == o.getClass()) {
+         Enemy enemy = (Enemy)o;
+         return this.name.equalsIgnoreCase(enemy.name);
+      } else {
+         return false;
+      }
+   }
 
-    @Override
-    public int hashCode() {
-        return Objects.hash(name.toLowerCase());
-    }
+   public int hashCode() {
+      return Objects.hash(new Object[]{this.name.toLowerCase()});
+   }
 
-    @Override
-    public int compareTo(Enemy enemy) {
-        return name.compareToIgnoreCase(enemy.name);
-    }
+   public int compareTo(Enemy enemy) {
+      return this.name.compareToIgnoreCase(enemy.name);
+   }
 }

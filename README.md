@@ -30,6 +30,7 @@ blocklist, so you can actually connect to them.
 |----------------|------------------------------|
 | Fabric Loader | 0.18.3+                     |
 | Meteor Client | current 1.21.11 snapshot, check [maven.meteordev.org/snapshots](https://maven.meteordev.org/snapshots/meteordevelopment/meteor-client/) |
+| Baritone      | a build matching your Meteor Client version (required for Chest Tracker's `use-baritone`) |
 | JDK           | 21                           |
 
 ---
@@ -152,6 +153,29 @@ away where it belongs" rather than Stash Mover's input→output loop.
 </details>
 
 <details>
+<summary> inventory-sorter</summary>
+
+Saves a named snapshot of your inventory layout and auto-sorts items back into that exact
+layout whenever it drifts, slot by slot rather than by container contents (see
+`auto-stash-sorter` above for the one-shot "put it away" version). Controlled entirely
+through the `.invsorter` commands (see Commands).
+
+- **General**: `chat-notify`, chat message when an inventory is saved or finishes sorting.
+  `tick-rate`, ticks between each slot move (higher is slower but less likely to trip
+  anti-cheat). `auto-disable`, turn the module off by itself once sorting finishes instead
+  of continuing to watch for drift.
+- **Auto-Loot**: `auto-loot` — `Off` does nothing extra; `Refill` tops up whatever you
+  already carry whenever you open storage while the module is active; `Rekit` pulls items
+  belonging to a chosen saved inventory out of any storage you open, then arranges your
+  inventory into that layout once you close it. `rekit-inventory`, which saved inventory
+  Rekit targets.
+
+Save and load layouts with `.invsorter save <name>` / `.invsorter load <name>`; manage them
+with `.invsorter delete <name>`, `.invsorter clear`, and `.invsorter list`. Saved layouts
+persist to `.minecraft/config/inventory-sorter/inventories.json`.
+</details>
+
+<details>
 <summary> efly</summary>
 
 Elytra-flight and movement module tuned for 6b6t. This is Volizray's VolytraFly,
@@ -215,6 +239,20 @@ To use it: enable the module, open its settings, and add lines to `kill-messages
   Pop Messages).
 - `range` sets how far away a death or pop is still detected; `delay` throttles repeated
   triggers.
+</details>
+
+<details>
+<summary> csgo-spin</summary>
+
+Rotates your view for you automatically, in either of two styles picked by `spin-mode`.
+
+- **CSGO mode** (default): spins yaw and/or pitch in a ping-pong sweep. `yaw`/`yaw-speed`
+  sweep left-right between -180° and 180°; `pitch`/`rotation-speed` sweep up-down. `anti-
+  desync` pauses spinning while you're using things that need a steady look direction —
+  `All` covers bows, ender pearls, XP bottles, elytra, EXPThrower and BedAura; `Except
+  Elytra` covers everything except elytra; `None` never pauses.
+- **CS2 mode**: continuously spins yaw at a constant `rotation-speed` (0-50), pausing only
+  while EXPThrower or Quiver are active.
 </details>
 
 <details>
@@ -608,6 +646,26 @@ control text appearance.
 </details>
 
 <details>
+<summary> Now Playing HUD</summary>
+
+Shows the song currently playing on your PC as `Artist - Title`, pulled from whatever
+Windows reports as the active media session (Spotify, YouTube in a browser, VLC, and most
+other players). Drag it onto your screen from the HUD editor, then play something.
+
+- `show-artist`, show the artist before the track title; turn off to show only the title.
+- `hide-when-paused`, hides the element when nothing is playing (on by default).
+- `max-length`, longest text to show before it is cut off with `...`.
+- `shadow`, `color` and `color-use-theme`, text appearance.
+- **Scale**: optional `custom-scale` (with a `scale` slider, 0.5-3) independent of the global
+  HUD text scale.
+
+**Windows only.** It reads your own PC's media session through a hidden PowerShell process
+that only runs while the element is on screen, it can't see what other players are
+listening to. On other systems nothing is shown. If several players are open, Windows
+decides which one counts as current, usually the one you used last.
+</details>
+
+<details>
 <summary> Stats HUD</summary>
 
 Displays your Minecraft statistics (play time, distance traveled, blocks broken, mobs
@@ -716,6 +774,9 @@ versions if any of them move.
 
 ## Credits
 
+- **Homes** and the underlying base system are adapted from
+  [Powie69](https://github.com/Powie69)'s **6Bees** addon:
+  <https://github.com/Powie69/6Bees>. Full credit for the original design goes to Powie69.
 - **Efly**, the elytra-flight logic, is [Volizray](https://github.com/Volizray)'s own
   **VolytraFly**: <https://github.com/Volizray/VolytraFly-Addon>. It's repackaged and
   renamed only for this addon (package, class name, module id `efly`, and category
@@ -730,12 +791,15 @@ versions if any of them move.
   this addon's structure (package, category, config folder) and simplified to target only
   this project's supported Minecraft version, with the rest of the logic unchanged. Full
   credit for the original module and its Discord-style HTML log design goes to Plumbiller.
-- **Chest related modules** are adapted from [BepHexAddon](https://github.com/dekrom/BepHaxAddon)
-- **Meteor Fix** One of the meteor bug fixes used Fractal420 [Meteor-GUI-Position-Fix](https://github.com/Fractal420/Meteor-GUI-Position-Fix).
+- **Chest related modules** are adapted from [BepHaxAddon](https://github.com/dekrom/BepHaxAddon).
+- **Meteor Fix** — one of the Meteor bug fixes used Fractal420's
+  [Meteor-GUI-Position-Fix](https://github.com/Fractal420/Meteor-GUI-Position-Fix).
+- **Lucky1821**
+
 ## License
 
 MIT, see [LICENSE](LICENSE). You're free to use, modify, and redistribute this addon as
 long as the original copyright notice and the credits above are kept.
 
-[discord]: https://discord.gg/fdHkyVYc8
+[discord]: https://discord.gg/HX6rSFg3k
 [vidget-discord]: https://invidget.switchblade.xyz/fdHkyVYc8

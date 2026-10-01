@@ -1,40 +1,47 @@
 package gamerguy11.sixtoolsaddon.utils;
 
+import java.lang.reflect.Field;
 import meteordevelopment.meteorclient.gui.GuiTheme;
 import meteordevelopment.meteorclient.gui.GuiThemes;
 import meteordevelopment.meteorclient.settings.Setting;
 import meteordevelopment.meteorclient.utils.render.color.SettingColor;
 
-import java.lang.reflect.Field;
-
 public final class ThemeColorUtils {
-    private ThemeColorUtils() {}
+   private ThemeColorUtils() {
+   }
 
-    public static SettingColor resolve(SettingColor color, boolean useTheme) {
-        if (!useTheme) return color;
+   public static SettingColor resolve(SettingColor color, boolean useTheme) {
+      if (!useTheme) {
+         return color;
+      } else {
+         SettingColor themeColor = getThemeColor();
+         return themeColor == null ? color : new SettingColor(themeColor.r, themeColor.g, themeColor.b, color.a);
+      }
+   }
 
-        SettingColor themeColor = getThemeColor();
-        if (themeColor == null) return color;
-
-        return new SettingColor(themeColor.r, themeColor.g, themeColor.b, color.a);
-    }
-
-    private static SettingColor getThemeColor() {
-        GuiTheme theme = GuiThemes.get();
-        if (theme == null) return null;
-
-        Class<?> type = theme.getClass();
-        while (type != null) {
+   private static SettingColor getThemeColor() {
+      GuiTheme theme = GuiThemes.get();
+      if (theme == null) {
+         return null;
+      } else {
+         for(Class<?> type = theme.getClass(); type != null; type = type.getSuperclass()) {
             try {
-                Field field = type.getDeclaredField("accentColor");
-                field.setAccessible(true);
-                Object value = field.get(theme);
-                if (value instanceof Setting<?> setting && setting.get() instanceof SettingColor color) return color;
-            } catch (ReflectiveOperationException ignored) {
+               Field field = type.getDeclaredField("accentColor");
+               field.setAccessible(true);
+               Object value = field.get(theme);
+               if (value instanceof Setting) {
+                  Setting<?> setting = (Setting)value;
+                  Object var6 = setting.get();
+                  if (var6 instanceof SettingColor) {
+                     SettingColor color = (SettingColor)var6;
+                     return color;
+                  }
+               }
+            } catch (ReflectiveOperationException var7) {
             }
-            type = type.getSuperclass();
-        }
+         }
 
-        return null;
-    }
+         return null;
+      }
+   }
 }

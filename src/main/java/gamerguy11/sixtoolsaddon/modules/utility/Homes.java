@@ -8,18 +8,13 @@ import meteordevelopment.meteorclient.gui.widgets.pressable.WButton;
 import meteordevelopment.meteorclient.systems.modules.Module;
 
 public class Homes extends Module {
-    public Homes() {
-        super(
-            SixToolsAddon.CATEGORY,
-            "homes",
-            "Manage your homes. Auto TPY ignores or denies teleport requests while you stand inside a protected home."
-        );
-    }
+   public Homes() {
+      super(SixToolsAddon.CATEGORY, "homes", "Manage your homes. Auto TPY ignores or denies teleport requests while you stand inside a protected home.");
+   }
 
-    @Override
-    public WWidget getWidget(GuiTheme theme) {
-        WButton button = theme.button("Manage Homes");
-        button.action = () -> mc.setScreen(new HomesScreen(theme));
-        return button;
-    }
+   public WWidget getWidget(GuiTheme theme) {
+      WButton button = theme.button("Manage Homes");
+      button.action = () -> this.mc.setScreen(new HomesScreen(theme));
+      return button;
+   }
 }

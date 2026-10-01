@@ -2,20 +2,15 @@ package gamerguy11.sixtoolsaddon.meteorfix;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import gamerguy11.sixtoolsaddon.mixin.meteorfix.WWindowDragStateAccessor;
 import gamerguy11.sixtoolsaddon.mixin.meteorfix.WWindowTitleAccessor;
-import meteordevelopment.meteorclient.gui.widgets.WWidget;
-import meteordevelopment.meteorclient.gui.widgets.containers.WWindow;
-import meteordevelopment.meteorclient.utils.Utils;
-import net.fabricmc.loader.api.FabricLoader;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -25,403 +20,395 @@ import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import meteordevelopment.meteorclient.gui.widgets.WWidget;
+import meteordevelopment.meteorclient.gui.widgets.containers.WWindow;
+import meteordevelopment.meteorclient.utils.Utils;
+import net.fabricmc.loader.api.FabricLoader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class WindowPositionMemory {
+   private static final Logger LOGGER = LoggerFactory.getLogger("meteorfix");
+   private static final AtomicBoolean LOGGED_FIRST_LAYOUT = new AtomicBoolean(false);
+   private static final AtomicBoolean LOGGED_FIRST_MOVE = new AtomicBoolean(false);
+   private static final AtomicBoolean LOGGED_FIRST_RESOLVE = new AtomicBoolean(false);
+   private static final ThreadLocal<Boolean> CLAMPING = ThreadLocal.withInitial(() -> false);
+   private static final Gson GSON = new Gson();
+   private static final Path FILE = FabricLoader.getInstance().getConfigDir().resolve("meteorfix.json");
+   private static final Map<String, double[]> POSITIONS = new ConcurrentHashMap();
+   private static volatile boolean loaded = false;
+   private static final Set<WWindow> ACTIVE_WINDOWS = Collections.newSetFromMap(new WeakHashMap());
+   private static final double GAP = (double)4.0F;
+   private static Field EXPANDED_FIELD;
+   private static Field ANIM_PROGRESS_FIELD;
+   private static Field HEADER_FIELD;
+   private static Field DRAGGING_FIELD;
+   private static Field CATPPUCCIN_ANIMATION_FIELD;
+   private static Method CATPPUCCIN_ANIM_PROGRESS_METHOD;
+   private static boolean reflectionReady = false;
+   private static boolean catppuccinReflectionReady = false;
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("meteorfix");
-    private static final AtomicBoolean LOGGED_FIRST_LAYOUT = new AtomicBoolean(false);
-    private static final AtomicBoolean LOGGED_FIRST_MOVE = new AtomicBoolean(false);
-    private static final AtomicBoolean LOGGED_FIRST_RESOLVE = new AtomicBoolean(false);
+   private WindowPositionMemory() {
+   }
 
-    private static final ThreadLocal<Boolean> CLAMPING = ThreadLocal.withInitial(() -> false);
+   public static boolean isClamping() {
+      return Boolean.TRUE.equals(CLAMPING.get());
+   }
 
-    private static final Gson GSON = new Gson();
-    private static final Path FILE = FabricLoader.getInstance()
-        .getConfigDir()
-        .resolve("meteorfix.json");
+   public static void afterLayout(WWindow window) {
+      ensureLoaded();
+      ACTIVE_WINDOWS.add(window);
+      if (LOGGED_FIRST_LAYOUT.compareAndSet(false, true)) {
+         LOGGER.info("[MeteorFix] Window layout hook is active.");
+      }
 
-    private static final Map<String, double[]> POSITIONS = new ConcurrentHashMap<>();
-    private static volatile boolean loaded = false;
+      String key = keyFor(window);
+      if (key != null) {
+         double[] saved = (double[])POSITIONS.get(key);
+         if (saved != null) {
+            double dx = saved[0] - window.x;
+            double dy = saved[1] - window.y;
+            if (dx != (double)0.0F || dy != (double)0.0F) {
+               CLAMPING.set(true);
 
-    private static final Set<WWindow> ACTIVE_WINDOWS =
-        Collections.newSetFromMap(new WeakHashMap<>());
-
-    private static final double GAP = 4.0;
-
-    private static Field EXPANDED_FIELD;
-    private static Field ANIM_PROGRESS_FIELD;
-    private static Field HEADER_FIELD;
-    private static Field DRAGGING_FIELD;
-    private static Field CATPPUCCIN_ANIMATION_FIELD;
-    private static Method CATPPUCCIN_ANIM_PROGRESS_METHOD;
-    private static boolean reflectionReady = false;
-    private static boolean catppuccinReflectionReady = false;
-
-    static {
-        try {
-            EXPANDED_FIELD = WWindow.class.getDeclaredField("expanded");
-            EXPANDED_FIELD.setAccessible(true);
-            ANIM_PROGRESS_FIELD = WWindow.class.getDeclaredField("animProgress");
-            ANIM_PROGRESS_FIELD.setAccessible(true);
-            HEADER_FIELD = WWindow.class.getDeclaredField("header");
-            HEADER_FIELD.setAccessible(true);
-            DRAGGING_FIELD = WWindow.class.getDeclaredField("dragging");
-            DRAGGING_FIELD.setAccessible(true);
-            reflectionReady = true;
-        } catch (Throwable t) {
-            LOGGER.warn("[MeteorFix] Could not prepare reflection for WWindow state.", t);
-        }
-
-        try {
-            Class<?> catWindow = Class.forName("me.pindour.catppuccin.gui.themes.catppuccin.widgets.container.WCatppuccinWindow");
-            CATPPUCCIN_ANIMATION_FIELD = catWindow.getDeclaredField("animation");
-            CATPPUCCIN_ANIMATION_FIELD.setAccessible(true);
-            Class<?> animClass = Class.forName("me.pindour.catppuccin.api.animation.Animation");
-            CATPPUCCIN_ANIM_PROGRESS_METHOD = animClass.getMethod("getProgress");
-            catppuccinReflectionReady = true;
-        } catch (Throwable ignored) {
-        }
-    }
-
-    private WindowPositionMemory() {
-    }
-
-    public static boolean isClamping() {
-        return Boolean.TRUE.equals(CLAMPING.get());
-    }
-
-    public static void afterLayout(WWindow window) {
-        ensureLoaded();
-        ACTIVE_WINDOWS.add(window);
-
-        if (LOGGED_FIRST_LAYOUT.compareAndSet(false, true)) {
-            LOGGER.info("[MeteorFix] Window layout hook is active.");
-        }
-
-        String key = keyFor(window);
-        if (key != null) {
-            double[] saved = POSITIONS.get(key);
-            if (saved != null) {
-                double dx = saved[0] - window.x;
-                double dy = saved[1] - window.y;
-                if (dx != 0 || dy != 0) {
-                    CLAMPING.set(true);
-                    try {
-                        window.move(dx, dy);
-                    } finally {
-                        CLAMPING.set(false);
-                    }
-                }
-            } else {
-                POSITIONS.put(key, new double[]{window.x, window.y});
-                save();
+               try {
+                  window.move(dx, dy);
+               } finally {
+                  CLAMPING.set(false);
+               }
             }
-        }
+         } else {
+            POSITIONS.put(key, new double[]{window.x, window.y});
+            save();
+         }
+      }
 
-        clampToScreen(window);
-    }
+      clampToScreen(window);
+   }
 
-    public static void afterMove(WWindow window) {
-        if (isClamping()) return;
-
-        if (LOGGED_FIRST_MOVE.compareAndSet(false, true)) {
+   public static void afterMove(WWindow window) {
+      if (!isClamping()) {
+         if (LOGGED_FIRST_MOVE.compareAndSet(false, true)) {
             LOGGER.info("[MeteorFix] Window move hook is active.");
-        }
+         }
 
-        clampToScreen(window);
+         clampToScreen(window);
+         String key = keyFor(window);
+         if (key != null) {
+            POSITIONS.put(key, new double[]{window.x, window.y});
+         }
+      }
+   }
 
-        String key = keyFor(window);
-        if (key == null) return;
-
-        POSITIONS.put(key, new double[]{window.x, window.y});
-    }
-
-    public static void afterDragEnd(WWindow window) {
-        if (isClamping()) return;
-
-        if (LOGGED_FIRST_RESOLVE.compareAndSet(false, true)) {
+   public static void afterDragEnd(WWindow window) {
+      if (!isClamping()) {
+         if (LOGGED_FIRST_RESOLVE.compareAndSet(false, true)) {
             LOGGER.info("[MeteorFix] Overlap-resolve-on-release is active.");
-        }
+         }
 
-        resolveOverlaps(window);
-        clampToScreen(window);
-        ((gamerguy11.sixtoolsaddon.mixin.meteorfix.WWindowDragStateAccessor) (Object) window).meteorfix$setMoved(false);
-        ((gamerguy11.sixtoolsaddon.mixin.meteorfix.WWindowDragStateAccessor) (Object) window).meteorfix$setMovedX(window.x);
-        ((gamerguy11.sixtoolsaddon.mixin.meteorfix.WWindowDragStateAccessor) (Object) window).meteorfix$setMovedY(window.y);
+         resolveOverlaps(window);
+         clampToScreen(window);
+         ((WWindowDragStateAccessor)window).meteorfix$setMoved(false);
+         ((WWindowDragStateAccessor)window).meteorfix$setMovedX(window.x);
+         ((WWindowDragStateAccessor)window).meteorfix$setMovedY(window.y);
+         String key = keyFor(window);
+         if (key != null) {
+            POSITIONS.put(key, new double[]{window.x, window.y});
+            save();
+         }
+      }
+   }
 
-        String key = keyFor(window);
-        if (key == null) return;
+   public static void clampToScreen(WWindow window) {
+      double topBar = (double)40.0F;
+      double headerH = headerHeight(window);
+      double maxX = (double)Utils.getWindowWidth() - window.width;
+      double maxY = (double)Utils.getWindowHeight() - headerH;
+      double newX = window.x;
+      double newY = window.y;
+      if (newX > maxX) {
+         newX = Math.max((double)0.0F, maxX);
+      }
 
-        POSITIONS.put(key, new double[]{window.x, window.y});
-        save();
-    }
+      if (newY > maxY) {
+         newY = Math.max((double)40.0F, maxY);
+      }
 
-    public static void clampToScreen(WWindow window) {
-        final double topBar = 40.0;
-        double headerH = headerHeight(window);
+      if (newX < (double)0.0F) {
+         newX = (double)0.0F;
+      }
 
-        double maxX = Utils.getWindowWidth() - window.width;
-        double maxY = Utils.getWindowHeight() - headerH;
+      if (newY < (double)40.0F) {
+         newY = (double)40.0F;
+      }
 
-        double newX = window.x;
-        double newY = window.y;
+      double dx = newX - window.x;
+      double dy = newY - window.y;
+      if (dx != (double)0.0F || dy != (double)0.0F) {
+         CLAMPING.set(true);
 
-        if (newX > maxX) newX = Math.max(0, maxX);
-        if (newY > maxY) newY = Math.max(topBar, maxY);
-        if (newX < 0) newX = 0;
-        if (newY < topBar) newY = topBar;
-
-        double dx = newX - window.x;
-        double dy = newY - window.y;
-
-        if (dx == 0 && dy == 0) return;
-
-        CLAMPING.set(true);
-        try {
+         try {
             window.move(dx, dy);
-        } finally {
+         } finally {
             CLAMPING.set(false);
-        }
-    }
+         }
 
-    public static void resolveOverlaps(WWindow window) {
-        List<WWindow> others = collectSiblings(window);
-        if (others.isEmpty()) return;
+      }
+   }
 
-        final double originX = window.x;
-        final double originY = window.y;
-        final double ww = window.width;
-        final double wh = effectiveHeight(window);
+   public static void resolveOverlaps(WWindow window) {
+      List<WWindow> others = collectSiblings(window);
+      if (!others.isEmpty()) {
+         double originX = window.x;
+         double originY = window.y;
+         double ww = window.width;
+         double wh = effectiveHeight(window);
+         if (!isFree(originX, originY, ww, wh, others)) {
+            double topBar = (double)40.0F;
+            double screenW = (double)Utils.getWindowWidth();
+            double screenH = (double)Utils.getWindowHeight();
+            double minX = (double)0.0F;
+            double minY = (double)40.0F;
+            double maxX = Math.max((double)0.0F, screenW - ww);
+            double maxY = Math.max((double)40.0F, screenH - headerHeight(window));
+            double bestX = originX;
+            double bestY = originY;
+            double bestDist = Double.POSITIVE_INFINITY;
+            boolean found = false;
 
-        if (isFree(originX, originY, ww, wh, others)) return;
+            for(WWindow other : others) {
+               double ox = other.x;
+               double oy = other.y;
+               double ow = other.width;
+               double oh = effectiveHeight(other);
+               double[][] sideCandidates = new double[][]{{ox + ow + (double)4.0F, originY}, {ox - ww - (double)4.0F, originY}, {originX, oy + oh + (double)4.0F}, {originX, oy - wh - (double)4.0F}, {ox + ow + (double)4.0F, oy}, {ox - ww - (double)4.0F, oy}, {ox, oy + oh + (double)4.0F}, {ox, oy - wh - (double)4.0F}, {ox + ow + (double)4.0F, oy + oh - wh}, {ox - ww - (double)4.0F, oy + oh - wh}, {ox + ow - ww, oy + oh + (double)4.0F}, {ox + ow - ww, oy - wh - (double)4.0F}};
 
-        final double topBar = 40.0;
-        final double screenW = Utils.getWindowWidth();
-        final double screenH = Utils.getWindowHeight();
-        final double minX = 0;
-        final double minY = topBar;
-        final double maxX = Math.max(minX, screenW - ww);
-        final double maxY = Math.max(minY, screenH - headerHeight(window));
-
-        double bestX = originX;
-        double bestY = originY;
-        double bestDist = Double.POSITIVE_INFINITY;
-        boolean found = false;
-
-        for (WWindow other : others) {
-            double ox = other.x;
-            double oy = other.y;
-            double ow = other.width;
-            double oh = effectiveHeight(other);
-
-            double[][] sideCandidates = {
-                { ox + ow + GAP, originY },
-                { ox - ww - GAP, originY },
-                { originX, oy + oh + GAP },
-                { originX, oy - wh - GAP },
-                { ox + ow + GAP, oy },
-                { ox - ww - GAP, oy },
-                { ox, oy + oh + GAP },
-                { ox, oy - wh - GAP },
-                { ox + ow + GAP, oy + oh - wh },
-                { ox - ww - GAP, oy + oh - wh },
-                { ox + ow - ww, oy + oh + GAP },
-                { ox + ow - ww, oy - wh - GAP },
-            };
-
-            for (double[] c : sideCandidates) {
-                double cx = clamp(c[0], minX, maxX);
-                double cy = clamp(c[1], minY, maxY);
-                if (!isFree(cx, cy, ww, wh, others)) continue;
-                double d = dist2(cx, cy, originX, originY);
-                if (d < bestDist) {
-                    bestDist = d;
-                    bestX = cx;
-                    bestY = cy;
-                    found = true;
-                }
-            }
-        }
-
-        final double step = 8.0;
-        final int maxRings = 80;
-
-        for (int ring = 1; ring <= maxRings; ring++) {
-            double radius = ring * step;
-
-            int samples = Math.max(8, (int) (2 * Math.PI * radius / step));
-            for (int s = 0; s < samples; s++) {
-                double angle = (2 * Math.PI * s) / samples;
-                double cx = clamp(originX + Math.cos(angle) * radius, minX, maxX);
-                double cy = clamp(originY + Math.sin(angle) * radius, minY, maxY);
-                if (!isFree(cx, cy, ww, wh, others)) continue;
-                double d = dist2(cx, cy, originX, originY);
-                if (d < bestDist) {
-                    bestDist = d;
-                    bestX = cx;
-                    bestY = cy;
-                    found = true;
-                }
+               for(double[] c : sideCandidates) {
+                  double cx = clamp(c[0], (double)0.0F, maxX);
+                  double cy = clamp(c[1], (double)40.0F, maxY);
+                  if (isFree(cx, cy, ww, wh, others)) {
+                     double d = dist2(cx, cy, originX, originY);
+                     if (d < bestDist) {
+                        bestDist = d;
+                        bestX = cx;
+                        bestY = cy;
+                        found = true;
+                     }
+                  }
+               }
             }
 
-            if (found && bestDist <= radius * radius) break;
-        }
+            double step = (double)8.0F;
+            int maxRings = 80;
 
-        if (!found) {
-            return;
-        }
+            for(int ring = 1; ring <= 80; ++ring) {
+               double radius = (double)ring * (double)8.0F;
+               int samples = Math.max(8, (int)((Math.PI * 2D) * radius / (double)8.0F));
 
-        double dx = bestX - window.x;
-        double dy = bestY - window.y;
-        if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return;
+               for(int s = 0; s < samples; ++s) {
+                  double angle = (Math.PI * 2D) * (double)s / (double)samples;
+                  double cx = clamp(originX + Math.cos(angle) * radius, (double)0.0F, maxX);
+                  double cy = clamp(originY + Math.sin(angle) * radius, (double)40.0F, maxY);
+                  if (isFree(cx, cy, ww, wh, others)) {
+                     double d = dist2(cx, cy, originX, originY);
+                     if (d < bestDist) {
+                        bestDist = d;
+                        bestX = cx;
+                        bestY = cy;
+                        found = true;
+                     }
+                  }
+               }
 
-        CLAMPING.set(true);
-        try {
-            window.move(dx, dy);
-        } finally {
-            CLAMPING.set(false);
-        }
-    }
+               if (found && bestDist <= radius * radius) {
+                  break;
+               }
+            }
 
-    private static List<WWindow> collectSiblings(WWindow window) {
-        List<WWindow> others = new ArrayList<>();
-        for (WWindow other : ACTIVE_WINDOWS) {
-            if (other == null || other == window) continue;
-            if (other.parent == null) continue;
+            if (found) {
+               double dx = bestX - window.x;
+               double dy = bestY - window.y;
+               if (!(Math.abs(dx) < (double)0.5F) || !(Math.abs(dy) < (double)0.5F)) {
+                  CLAMPING.set(true);
 
-            if (window.parent != null && other.parent != window.parent) continue;
+                  try {
+                     window.move(dx, dy);
+                  } finally {
+                     CLAMPING.set(false);
+                  }
+
+               }
+            }
+         }
+      }
+   }
+
+   private static List<WWindow> collectSiblings(WWindow window) {
+      List<WWindow> others = new ArrayList();
+
+      for(WWindow other : ACTIVE_WINDOWS) {
+         if (other != null && other != window && other.parent != null && (window.parent == null || other.parent == window.parent)) {
             others.add(other);
-        }
-        return others;
-    }
+         }
+      }
 
-    private static boolean isFree(double x, double y, double w, double h, List<WWindow> others) {
-        for (WWindow other : others) {
-            double ox = other.x;
-            double oy = other.y;
-            double ow = other.width;
-            double oh = effectiveHeight(other);
+      return others;
+   }
 
-            if (x < ox + ow + GAP
-                && x + w > ox - GAP
-                && y < oy + oh + GAP
-                && y + h > oy - GAP) {
-                return false;
-            }
-        }
-        return true;
-    }
+   private static boolean isFree(double x, double y, double w, double h, List<WWindow> others) {
+      for(WWindow other : others) {
+         double ox = other.x;
+         double oy = other.y;
+         double ow = other.width;
+         double oh = effectiveHeight(other);
+         if (x < ox + ow + (double)4.0F && x + w > ox - (double)4.0F && y < oy + oh + (double)4.0F && y + h > oy - (double)4.0F) {
+            return false;
+         }
+      }
 
-    private static double dist2(double x1, double y1, double x2, double y2) {
-        double dx = x1 - x2;
-        double dy = y1 - y2;
-        return dx * dx + dy * dy;
-    }
+      return true;
+   }
 
-    private static double clamp(double v, double lo, double hi) {
-        if (v < lo) return lo;
-        if (v > hi) return hi;
-        return v;
-    }
+   private static double dist2(double x1, double y1, double x2, double y2) {
+      double dx = x1 - x2;
+      double dy = y1 - y2;
+      return dx * dx + dy * dy;
+   }
 
-    private static double headerHeight(WWindow window) {
-        if (!reflectionReady) {
-            return 28.0;
-        }
-        try {
+   private static double clamp(double v, double lo, double hi) {
+      if (v < lo) {
+         return lo;
+      } else {
+         return v > hi ? hi : v;
+      }
+   }
+
+   private static double headerHeight(WWindow window) {
+      if (!reflectionReady) {
+         return (double)28.0F;
+      } else {
+         try {
             Object rawHeader = HEADER_FIELD.get(window);
-            if (rawHeader instanceof WWidget header && header.height > 0) {
-                return header.height;
+            if (rawHeader instanceof WWidget) {
+               WWidget header = (WWidget)rawHeader;
+               if (header.height > (double)0.0F) {
+                  return header.height;
+               }
             }
-        } catch (Throwable ignored) {
-        }
-        return Math.min(28.0, window.height > 0 ? window.height : 28.0);
-    }
+         } catch (Throwable var3) {
+         }
 
-    public static double effectiveHeight(WWindow window) {
-        if (isCatppuccinWindow(window) && catppuccinReflectionReady) {
-            try {
-                Object anim = CATPPUCCIN_ANIMATION_FIELD.get(window);
-                double progress = ((Number) CATPPUCCIN_ANIM_PROGRESS_METHOD.invoke(anim)).doubleValue();
-                double hh = headerHeight(window);
-                if (progress >= 0.999) {
-                    return window.height;
-                }
-                return Math.max(hh, hh + (window.height - hh) * Math.max(0.0, Math.min(1.0, progress)));
-            } catch (Throwable ignored) {
+         return Math.min((double)28.0F, window.height > (double)0.0F ? window.height : (double)28.0F);
+      }
+   }
+
+   public static double effectiveHeight(WWindow window) {
+      if (isCatppuccinWindow(window) && catppuccinReflectionReady) {
+         try {
+            Object anim = CATPPUCCIN_ANIMATION_FIELD.get(window);
+            double progress = ((Number)CATPPUCCIN_ANIM_PROGRESS_METHOD.invoke(anim)).doubleValue();
+            double hh = headerHeight(window);
+            if (progress >= 0.999) {
+               return window.height;
             }
-        }
 
-        if (!reflectionReady) {
-            return Math.min(28.0, window.height > 0 ? window.height : 28.0);
-        }
+            return Math.max(hh, hh + (window.height - hh) * Math.max((double)0.0F, Math.min((double)1.0F, progress)));
+         } catch (Throwable var7) {
+         }
+      }
 
-        try {
+      if (!reflectionReady) {
+         return Math.min((double)28.0F, window.height > (double)0.0F ? window.height : (double)28.0F);
+      } else {
+         try {
             boolean expanded = EXPANDED_FIELD.getBoolean(window);
             double animProgress = ANIM_PROGRESS_FIELD.getDouble(window);
             double hh = headerHeight(window);
+            return expanded && animProgress >= 0.999 ? window.height : (window.height - hh) * animProgress + hh;
+         } catch (Throwable var6) {
+            return Math.min((double)28.0F, window.height > (double)0.0F ? window.height : (double)28.0F);
+         }
+      }
+   }
 
-            if (expanded && animProgress >= 0.999) {
-                return window.height;
+   private static boolean isCatppuccinWindow(WWindow window) {
+      return window.getClass().getName().contains("Catppuccin");
+   }
+
+   private static String keyFor(WWindow window) {
+      String id = window.id;
+      if (id != null && !id.isBlank()) {
+         return "id:" + id;
+      } else {
+         String title = safeTitle(window);
+         return title != null && !title.isBlank() ? "title:" + title : null;
+      }
+   }
+
+   private static String safeTitle(WWindow window) {
+      try {
+         return ((WWindowTitleAccessor)window).meteorfix$getTitle();
+      } catch (Throwable var2) {
+         return null;
+      }
+   }
+
+   private static synchronized void ensureLoaded() {
+      if (!loaded) {
+         loaded = true;
+
+         try {
+            if (Files.exists(FILE, new LinkOption[0])) {
+               String json = Files.readString(FILE, StandardCharsets.UTF_8);
+               Type type = (new TypeToken() {
+               }).getType();
+               Map<String, double[]> onDisk = (Map)GSON.fromJson(json, type);
+               if (onDisk != null) {
+                  POSITIONS.putAll(onDisk);
+                  LOGGER.info("[MeteorFix] Loaded {} saved window position(s).", onDisk.size());
+               }
             }
-
-            return (window.height - hh) * animProgress + hh;
-        } catch (Throwable t) {
-            return Math.min(28.0, window.height > 0 ? window.height : 28.0);
-        }
-    }
-
-    private static boolean isCatppuccinWindow(WWindow window) {
-        return window.getClass().getName().contains("Catppuccin");
-    }
-
-    private static String keyFor(WWindow window) {
-        String id = window.id;
-        if (id != null && !id.isBlank()) {
-            return "id:" + id;
-        }
-
-        String title = safeTitle(window);
-        if (title != null && !title.isBlank()) {
-            return "title:" + title;
-        }
-
-        return null;
-    }
-
-    private static String safeTitle(WWindow window) {
-        try {
-            return ((WWindowTitleAccessor) (Object) window).meteorfix$getTitle();
-        } catch (Throwable t) {
-            return null;
-        }
-    }
-
-    private static synchronized void ensureLoaded() {
-        if (loaded) return;
-        loaded = true;
-
-        try {
-            if (Files.exists(FILE)) {
-                String json = Files.readString(FILE, StandardCharsets.UTF_8);
-                Type type = new TypeToken<Map<String, double[]>>() {}.getType();
-                Map<String, double[]> onDisk = GSON.fromJson(json, type);
-                if (onDisk != null) {
-                    POSITIONS.putAll(onDisk);
-                    LOGGER.info("[MeteorFix] Loaded {} saved window position(s).", onDisk.size());
-                }
-            }
-        } catch (Exception e) {
+         } catch (Exception e) {
             LOGGER.warn("[MeteorFix] Could not read saved positions, starting fresh.", e);
-        }
-    }
+         }
 
-    private static synchronized void save() {
-        try {
-            Files.createDirectories(FILE.getParent());
-            Files.writeString(FILE, GSON.toJson(POSITIONS), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            LOGGER.warn("[MeteorFix] Could not save window positions.", e);
-        }
-    }
+      }
+   }
+
+   private static synchronized void save() {
+      try {
+         Files.createDirectories(FILE.getParent());
+         Files.writeString(FILE, GSON.toJson(POSITIONS), StandardCharsets.UTF_8);
+      } catch (IOException e) {
+         LOGGER.warn("[MeteorFix] Could not save window positions.", e);
+      }
+
+   }
+
+   static {
+      try {
+         EXPANDED_FIELD = WWindow.class.getDeclaredField("expanded");
+         EXPANDED_FIELD.setAccessible(true);
+         ANIM_PROGRESS_FIELD = WWindow.class.getDeclaredField("animProgress");
+         ANIM_PROGRESS_FIELD.setAccessible(true);
+         HEADER_FIELD = WWindow.class.getDeclaredField("header");
+         HEADER_FIELD.setAccessible(true);
+         DRAGGING_FIELD = WWindow.class.getDeclaredField("dragging");
+         DRAGGING_FIELD.setAccessible(true);
+         reflectionReady = true;
+      } catch (Throwable t) {
+         LOGGER.warn("[MeteorFix] Could not prepare reflection for WWindow state.", t);
+      }
+
+      try {
+         Class<?> catWindow = Class.forName("me.pindour.catppuccin.gui.themes.catppuccin.widgets.container.WCatppuccinWindow");
+         CATPPUCCIN_ANIMATION_FIELD = catWindow.getDeclaredField("animation");
+         CATPPUCCIN_ANIMATION_FIELD.setAccessible(true);
+         Class<?> animClass = Class.forName("me.pindour.catppuccin.api.animation.Animation");
+         CATPPUCCIN_ANIM_PROGRESS_METHOD = animClass.getMethod("getProgress");
+         catppuccinReflectionReady = true;
+      } catch (Throwable var2) {
+      }
+
+   }
 }

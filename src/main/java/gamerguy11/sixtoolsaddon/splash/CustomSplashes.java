@@ -5,24 +5,20 @@ import java.util.List;
 import java.util.Random;
 
 public final class CustomSplashes {
+   private static final List<String> SPLASHES = new ArrayList<>();
+   private static final Random RANDOM;
 
-    private static final List<String> SPLASHES;
+   private CustomSplashes() {
+   }
 
-    static {
-        SPLASHES = new ArrayList<>();
-        SPLASHES.add("FUCK MOJANG");
-        SPLASHES.add("Based anarchy mod.");
-    }
+   public static String pick() {
+      return SPLASHES.isEmpty() ? null : (String)SPLASHES.get(RANDOM.nextInt(SPLASHES.size()));
+   }
 
-    private static final Random RANDOM = new Random();
-
-    private CustomSplashes() {
-    }
-
-    public static String pick() {
-        if (SPLASHES.isEmpty()) {
-            return null;
-        }
-        return SPLASHES.get(RANDOM.nextInt(SPLASHES.size()));
-    }
+   static {
+      SPLASHES.add("FUCK MOJANG");
+      SPLASHES.add("Skidded by Lucky1821");
+      SPLASHES.add("Based anarchy mod.");
+      RANDOM = new Random();
+   }
 }

@@ -1,32 +1,38 @@
 package gamerguy11.sixtoolsaddon.commands;
+
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import gamerguy11.sixtoolsaddon.modules.StashMover;
 import meteordevelopment.meteorclient.commands.Command;
 import meteordevelopment.meteorclient.systems.modules.Modules;
-import gamerguy11.sixtoolsaddon.modules.StashMover;
 import net.minecraft.command.CommandSource;
-import static meteordevelopment.meteorclient.MeteorClient.mc;
+
 public class SetOutput extends Command {
-    public SetOutput() {
-        super("setoutput", "Start output area selection for StashMover module");
-    }
-    @Override
-    public void build(LiteralArgumentBuilder<CommandSource> builder) {
-        builder.executes(context -> {
-            if (mc.player == null) return 0;
-            StashMover module = Modules.get().get(StashMover.class);
+   public SetOutput() {
+      super("setoutput", "Start output area selection for StashMover module", new String[0]);
+   }
+
+   public void build(LiteralArgumentBuilder builder) {
+      builder.executes((context) -> {
+         if (mc.player == null) {
+            return 0;
+         } else {
+            StashMover module = (StashMover)Modules.get().get(StashMover.class);
             if (module != null) {
-                if (module.isSelecting()) {
-                    module.cancelSelection();
-                    info("Previous selection cancelled");
-                }
-                module.startOutputSelection();
-                info("§bOutput area selection started!");
-                info("§eLeft-click the first corner block");
-                info("§7Press §cESC §7to cancel selection");
+               if (module.isSelecting()) {
+                  module.cancelSelection();
+                  this.info("Previous selection cancelled", new Object[0]);
+               }
+
+               module.startOutputSelection();
+               this.info("§bOutput area selection started!", new Object[0]);
+               this.info("§eLeft-click the first corner block", new Object[0]);
+               this.info("§7Press §cESC §7to cancel selection", new Object[0]);
             } else {
-                error("StashMover module not found!");
+               this.error("StashMover module not found!", new Object[0]);
             }
-            return SINGLE_SUCCESS;
-        });
-    }
+
+            return 1;
+         }
+      });
+   }
 }
