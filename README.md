@@ -27,12 +27,12 @@ blocklist, so you can actually connect to them.
 ## Requirements
 
 | Component     | Version                                                                                                                                      |
-|----------------|----------------------------------------------------------------------------------------------------------------------------------------------|
+|---------------|----------------------------------------------------------------------------------------------------------------------------------------------|
 | Fabric Loader | 0.18.3+                                                                                                                                      |
 | Meteor Client | current 1.21.11 snapshot, check [maven.meteordev.org/snapshots](https://maven.meteordev.org/snapshots/meteordevelopment/meteor-client/)      |
 | Baritone      | a build matching your [Meteor Client](https://meteorclient.com/archive) version when using [Baritone](https://github.com/cabaletta/baritone) |
 | JDK           | 21                                                                                                                                           |
-Note: If you are still using the [AnarchyMod](https://6b6t.kianbrose.com/) make sure it's the right version right now it has to be 1.4.3 
+| AnarchyMod    | The mod is option but if you are using it make sure it's [1.4.3](https://6b6t.kianbrose.com/) |
 ---
 
 ## Modules
