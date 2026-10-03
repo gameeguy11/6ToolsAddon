@@ -66,6 +66,9 @@ public class ChestTrackerModule extends Module {
    private final SettingGroup sgAdvanced;
    private final Setting<Keybind> browserKey;
    private final Setting<Boolean> autoOpenEnabled;
+   private final Setting<Boolean> removeDestroyed;
+   private final Map<BlockPos, Integer> missingChecks = new HashMap<>();
+   private int cleanupTimer;
    private final Setting<Boolean> silentMode;
    private final Setting<Double> autoOpenRange;
    private final Setting<Integer> autoOpenDelay;
@@ -118,6 +121,7 @@ public class ChestTrackerModule extends Module {
          }
 
       }).build());
+      this.removeDestroyed = this.sgGeneral.add(((BoolSetting.Builder)((BoolSetting.Builder)((BoolSetting.Builder)(new BoolSetting.Builder()).name("remove-destroyed")).description("Forgets tracked containers (and their items) once the block is broken, replaced by another kind of container, or a double chest loses or gains its other half.")).defaultValue(true)).build());
       this.autoOpenEnabled = this.sgAutoOpen.add(((BoolSetting.Builder)((BoolSetting.Builder)((BoolSetting.Builder)(new BoolSetting.Builder()).name("auto-open")).description("Automatically open nearby containers.")).defaultValue(false)).build());
       SettingGroup var10001 = this.sgAutoOpen;
       BoolSetting.Builder var10002 = (BoolSetting.Builder)((BoolSetting.Builder)((BoolSetting.Builder)(new BoolSetting.Builder()).name("silent-mode")).description("Auto-opened containers are read in the background: the container screen never appears and your hand doesn't swing. Manually opened containers are unaffected.")).defaultValue(true);
@@ -203,6 +207,8 @@ public class ChestTrackerModule extends Module {
       this.silentPending = false;
       this.ticksUntilClose = 0;
       this.blockedContainers.clear();
+      this.missingChecks.clear();
+      this.cleanupTimer = 0;
    }
 
    private void setupBlockInteractionTracking() {
@@ -231,6 +237,14 @@ public class ChestTrackerModule extends Module {
 
    @EventHandler
    private void onTick(TickEvent.Pre event) {
+      if (this.removeDestroyed.get()) {
+         ++this.cleanupTimer;
+         if (this.cleanupTimer >= 20) {
+            this.cleanupTimer = 0;
+            this.removeDestroyedContainers();
+         }
+      }
+
       if (!this.awaiting) {
          this.silentPending = false;
       }
@@ -321,6 +335,7 @@ public class ChestTrackerModule extends Module {
                   String currentDim = this.getCurrentDimension();
                   String containerType = this.getContainerType(trackPos);
                   this.data.trackContainer(trackPos, currentDim, containerType, items, topLevelItems);
+                  this.markShape(trackPos, currentDim);
                   if ((Boolean)this.debugMode.get()) {
                      this.info("Manually tracked " + containerType + " (" + items.size() + " items)", new Object[0]);
                   }
@@ -569,6 +584,7 @@ public class ChestTrackerModule extends Module {
                String currentDim = this.getCurrentDimension();
                String containerType = this.getContainerType(trackPos);
                this.data.trackContainer(trackPos, currentDim, containerType, items, topLevelItems);
+               this.markShape(trackPos, currentDim);
                if ((Boolean)this.debugMode.get()) {
                   this.info("Tracked " + containerType + " (" + items.size() + " items)", new Object[0]);
                }
@@ -729,6 +745,77 @@ public class ChestTrackerModule extends Module {
       }
    }
 
+   private boolean isContainerBlock(Block block) {
+      return block instanceof ChestBlock || block instanceof BarrelBlock || block instanceof ShulkerBoxBlock || block instanceof EnderChestBlock || block instanceof HopperBlock || block instanceof DispenserBlock;
+   }
+
+   private Boolean chestShape(BlockPos pos) {
+      if (this.mc.world == null) {
+         return null;
+      }
+
+      BlockState state = this.mc.world.getBlockState(pos);
+      if (state.getBlock() instanceof ChestBlock && state.contains(ChestBlock.CHEST_TYPE)) {
+         return state.get(ChestBlock.CHEST_TYPE) != ChestType.SINGLE;
+      }
+
+      return null;
+   }
+
+   private void markShape(BlockPos pos, String dimension) {
+      TrackedContainer container = this.data.getContainer(pos, dimension);
+      if (container != null) {
+         container.setDoubleChest(this.chestShape(pos));
+      }
+   }
+
+   private boolean isOutdated(TrackedContainer container, BlockPos pos) {
+      if (container.isTypeKnown() && !container.getContainerType().equals(this.getContainerType(pos))) {
+         return true;
+      }
+
+      Boolean wasDouble = container.getDoubleChest();
+      Boolean isDouble = this.chestShape(pos);
+      return wasDouble != null && isDouble != null && !wasDouble.equals(isDouble);
+   }
+
+   private void removeDestroyedContainers() {
+      if (this.mc.world == null || this.mc.player == null) {
+         return;
+      }
+
+      String dim = this.getCurrentDimension();
+      int removed = 0;
+
+      for (TrackedContainer container : this.data.getAllContainers(dim)) {
+         BlockPos pos = container.getPosition();
+         if (!this.mc.world.getChunkManager().isChunkLoaded(pos.getX() >> 4, pos.getZ() >> 4)) {
+            this.missingChecks.remove(pos);
+            continue;
+         }
+
+         if (this.isContainerBlock(this.mc.world.getBlockState(pos).getBlock()) && !this.isOutdated(container, pos)) {
+            this.missingChecks.remove(pos);
+            continue;
+         }
+
+         int misses = this.missingChecks.merge(pos, 1, Integer::sum);
+         if (misses >= 2) {
+            this.missingChecks.remove(pos);
+            if (this.data.removeContainer(pos, dim)) {
+               ++removed;
+            }
+         }
+      }
+
+      if (removed > 0) {
+         this.lastRenderCacheUpdate = 0L;
+         if (this.debugMode.get()) {
+            this.info("Removed " + removed + " destroyed container(s) from tracking", new Object[0]);
+         }
+      }
+   }
+
    private boolean isTrackableContainer(Block block) {
       if (!(block instanceof ChestBlock) && !(block instanceof TrappedChestBlock)) {
          if (block instanceof BarrelBlock) {
@@ -835,6 +922,7 @@ public class ChestTrackerModule extends Module {
          }
 
          this.data.trackContainer(pos, this.getCurrentDimension(), this.getContainerType(pos), contents, topLevelContents);
+         this.markShape(pos, this.getCurrentDimension());
       }
    }
 

@@ -16,6 +16,7 @@ public final class CustomSplashes {
    }
 
    static {
+      SPLASHES.add("JOIN CHICKEN CULT https://discord.gg/HX6rSFg3k");
       SPLASHES.add("FUCK MOJANG");
       SPLASHES.add("Skidded by Lucky1821");
       SPLASHES.add("Based anarchy mod.");

@@ -17,8 +17,8 @@ import meteordevelopment.meteorclient.utils.world.Dimension;
 
 public class HomeStore {
    private static final Gson GSON = (new GsonBuilder()).setPrettyPrinting().create();
-   private static final Type TYPE = (new TypeToken() {
-   }).getType();
+   private static final Type TYPE = new TypeToken<Map<String, Home>>() {
+   }.getType();
    private static final File FILE;
    private static final File SETTINGS_FILE;
    private static Map<String, Home> cache;
@@ -70,7 +70,7 @@ public class HomeStore {
       if (cache != null) {
          return cache;
       } else {
-         cache = new LinkedHashMap();
+         cache = new LinkedHashMap<>();
          if (!FILE.exists()) {
             return cache;
          } else {
@@ -80,7 +80,7 @@ public class HomeStore {
                   return cache;
                }
 
-               Map<String, Home> read = (Map)GSON.fromJson(content, TYPE);
+               Map<String, Home> read = GSON.fromJson(content, TYPE);
                if (read != null) {
                   cache = read;
                }

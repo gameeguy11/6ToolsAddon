@@ -90,7 +90,11 @@ item across everything you've seen without re-opening a single container. Comes 
 in-game browser GUI (`.chesttracker` or the `browser-keybind`, default `Y`) that lists
 every tracked container and its contents.
 
-- **General**: `browser-keybind` opens the container browser GUI.
+- **General**: `browser-keybind` opens the container browser GUI. `remove-destroyed`
+  (on by default) forgets a tracked container, its outline and its items once the block is
+  broken or replaced by another kind of container, or when a double chest loses or gains its
+  other half (reopen it to track it again). It only checks chunks you currently have loaded,
+  so containers far away are never removed by mistake.
 - **Auto-Open**: `auto-open` automatically opens any untracked container within
   `auto-open-range`, waiting `auto-open-delay` ticks between each and `auto-close-delay`
   ticks after opening (so the server has time to send the full contents before it closes
@@ -388,9 +392,11 @@ three.
 - `enemy-names`, player names to treat as enemies. Not case sensitive, and separate from
   Auto TP Accept's and Player Tracker's own enemy lists (Meteor has no built-in enemy
   list, so each module that needs one keeps its own).
-- `username-pattern`, the regex used to find the sender's name at the start of a chat line
-  (capture group 1). Default matches `Name » message` formatting (6b6t/Meteor style),
-  adjust it if your server's chat format differs.
+- `username-pattern`, the regex used to find player names in the part of a chat line before
+  the message (capture group 1). Rank prefixes like `[Prime] Name » message` are skipped
+  automatically: every name-like word before the `»`, `:` or `>` is checked, starting from
+  the one closest to the message, and the first that matches one of your highlight rules wins.
+  Adjust it if your server's chat format differs.
 - `debug`, prints each chat line's exact characters (as unicode escapes) plus match/color
   info to help you tune `username-pattern` for your server.
 
@@ -431,7 +437,9 @@ Setup: see the **Discord Webhook Setup** section below.
 - `send-death-coords`/`send-kills`/`send-killed-by`, the death/kill toggles above.
 - `death-pattern`, the regex used to detect death messages and pull out who died
   (`<victim>`) and who killed them (`<killer>`, if the death had an attacker). The default
-  covers vanilla's common death messages; adjust it if your server rewords them.
+  covers vanilla's common death messages and skips rank prefixes; adjust it if your server
+  rewords them. If you changed this setting in an older version, reset it to pick up the
+  fixed default.
 
 Messages are queued and sent in batches every 2 seconds rather than instantly, so a busy
 chat doesn't spam or rate-limit your webhook.
@@ -452,7 +460,9 @@ whisper wording differs from 6b6t's.
   person in the conversation.
 - The two format settings (`receive-format`/`send-format`) tell it how to recognize a
   whisper in chat, so you can adjust them to match your server's `/msg` or `/tell` wording
-  if you're not on 6b6t.
+  if you're not on 6b6t. Rank tags like `[Prime]` are ignored, and a line is only logged
+  when the `{player}` part is a single valid username, so a format that is too loose can't
+  turn ordinary chat into log files.
 
 - `receive-format`, pattern for incoming whispers (`{player}`/`{message}` placeholders).
 - `send-format`, pattern for whispers you send.
@@ -648,9 +658,8 @@ control text appearance.
 <details>
 <summary> Now Playing HUD</summary>
 
-Shows the song currently playing on your PC as `Artist - Title`, pulled from whatever
-Windows reports as the active media session (Spotify, YouTube in a browser, VLC, and most
-other players). Drag it onto your screen from the HUD editor, then play something.
+Shows the song currently playing on your PC as `Artist - Title`. Drag it onto your screen
+from the HUD editor, then play something.
 
 - `show-artist`, show the artist before the track title; turn off to show only the title.
 - `hide-when-paused`, hides the element when nothing is playing (on by default).
@@ -659,10 +668,20 @@ other players). Drag it onto your screen from the HUD editor, then play somethin
 - **Scale**: optional `custom-scale` (with a `scale` slider, 0.5-3) independent of the global
   HUD text scale.
 
-**Windows only.** It reads your own PC's media session through a hidden PowerShell process
-that only runs while the element is on screen, it can't see what other players are
-listening to. On other systems nothing is shown. If several players are open, Windows
-decides which one counts as current, usually the one you used last.
+**Windows**: reads whatever Windows reports as the active media session (Spotify, YouTube
+in a browser, VLC, and most other players) through a hidden PowerShell process. Nothing to
+install.
+
+**Linux**: reads the MPRIS media info that Spotify, Firefox, Chromium, VLC and most other
+players publish, using [`playerctl`](https://github.com/altdesktop/playerctl). Install it
+first, e.g. `sudo apt install playerctl` (Debian/Ubuntu), `sudo pacman -S playerctl` (Arch)
+or `sudo dnf install playerctl` (Fedora). Without it the HUD editor shows "Install
+playerctl".
+
+macOS isn't supported. It only shows your own PC's music, not what other players are
+listening to, and the background process only runs while the element is on screen. If
+several players are open, the one that is actually playing is shown; if none is, it falls
+back to the one the OS considers current.
 </details>
 
 <details>

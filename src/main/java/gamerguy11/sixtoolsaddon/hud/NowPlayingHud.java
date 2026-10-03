@@ -45,7 +45,11 @@ public class NowPlayingHud extends HudElement {
    private String text() {
       MediaWatcher media = MediaWatcher.INSTANCE;
       if (!media.isSupported()) {
-         return this.isInEditor() ? "Now playing: Windows only" : null;
+         return this.isInEditor() ? "Now playing: " + MediaWatcher.platformHint() : null;
+      }
+
+      if (media.isToolMissing()) {
+         return this.isInEditor() ? "Now playing: " + MediaWatcher.platformHint() : null;
       }
 
       if (!media.hasTrack() || (this.hideWhenPaused.get() && !media.isPlaying())) {
@@ -83,6 +87,6 @@ public class NowPlayingHud extends HudElement {
    }
 
    static {
-      INFO = new HudElementInfo(SixToolsAddon.HUD_GROUP, "now-playing", "Shows the song currently playing on your PC (Windows).", NowPlayingHud::new);
+      INFO = new HudElementInfo(SixToolsAddon.HUD_GROUP, "now-playing", "Shows the song currently playing on your PC (Windows and Linux).", NowPlayingHud::new);
    }
 }

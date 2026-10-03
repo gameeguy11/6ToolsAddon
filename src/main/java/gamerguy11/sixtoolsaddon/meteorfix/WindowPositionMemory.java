@@ -360,9 +360,9 @@ public final class WindowPositionMemory {
          try {
             if (Files.exists(FILE, new LinkOption[0])) {
                String json = Files.readString(FILE, StandardCharsets.UTF_8);
-               Type type = (new TypeToken() {
-               }).getType();
-               Map<String, double[]> onDisk = (Map)GSON.fromJson(json, type);
+               Type type = new TypeToken<Map<String, double[]>>() {
+               }.getType();
+               Map<String, double[]> onDisk = GSON.fromJson(json, type);
                if (onDisk != null) {
                   POSITIONS.putAll(onDisk);
                   LOGGER.info("[MeteorFix] Loaded {} saved window position(s).", onDisk.size());

@@ -20,6 +20,8 @@ public class TrackedContainer {
    private final List<ItemStack> itemStacks;
    private long lastUpdated;
    private String containerType;
+   private boolean typeKnown = true;
+   private Boolean doubleChest;
 
    public TrackedContainer(BlockPos position, String dimension, String containerType) {
       this.position = position;
@@ -103,6 +105,23 @@ public class TrackedContainer {
       return this.lastUpdated;
    }
 
+   public boolean isTypeKnown() {
+      return this.typeKnown;
+   }
+
+   public void setContainerType(String containerType) {
+      this.containerType = containerType;
+      this.typeKnown = true;
+   }
+
+   public Boolean getDoubleChest() {
+      return this.doubleChest;
+   }
+
+   public void setDoubleChest(Boolean doubleChest) {
+      this.doubleChest = doubleChest;
+   }
+
    public String getContainerType() {
       return this.containerType;
    }
@@ -119,6 +138,10 @@ public class TrackedContainer {
       json.addProperty("dimension", this.dimension);
       json.addProperty("type", this.containerType);
       json.addProperty("lastUpdated", this.lastUpdated);
+      if (this.doubleChest != null) {
+         json.addProperty("double", this.doubleChest);
+      }
+
       if (this.customName != null) {
          json.addProperty("customName", this.customName);
       }
@@ -145,6 +168,11 @@ public class TrackedContainer {
       String dimension = json.get("dimension").getAsString();
       String type = json.has("type") ? json.get("type").getAsString() : "chest";
       TrackedContainer container = new TrackedContainer(pos, dimension, type);
+      container.typeKnown = json.has("type");
+      if (json.has("double")) {
+         container.doubleChest = json.get("double").getAsBoolean();
+      }
+
       if (json.has("customName")) {
          container.customName = json.get("customName").getAsString();
       }

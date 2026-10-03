@@ -1,6 +1,7 @@
 package gamerguy11.sixtoolsaddon.modules.utility;
 
 import gamerguy11.sixtoolsaddon.SixToolsAddon;
+import gamerguy11.sixtoolsaddon.utils.ChatNames;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -49,7 +50,11 @@ public class WhisperLogger extends Module {
          Pattern pattern = Pattern.compile(regex);
          Matcher matcher = pattern.matcher(content);
          if (matcher.find()) {
-            String otherPlayer = matcher.group("player");
+            String otherPlayer = ChatNames.singleName(matcher.group("player"));
+            if (otherPlayer == null) {
+               return false;
+            }
+
             String messageContent = matcher.group("message");
             String myName = this.mc.player != null ? this.mc.player.getName().getString() : "Unknown";
             String sender = isReceive ? otherPlayer : myName;

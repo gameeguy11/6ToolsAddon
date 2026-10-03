@@ -78,6 +78,8 @@ public class ChestTrackerDataV2 {
          if (container == null) {
             container = new TrackedContainer(pos, dimension, containerType);
             dimContainers.put(pos, container);
+         } else {
+            container.setContainerType(containerType);
          }
 
          container.updateContents(contents, topLevelContents);
@@ -172,6 +174,17 @@ public class ChestTrackerDataV2 {
       }
 
       return var3;
+   }
+
+   public boolean removeContainer(BlockPos pos, String dimension) {
+      this.lock.writeLock().lock();
+
+      try {
+         Map<BlockPos, TrackedContainer> dimContainers = this.containers.get(dimension);
+         return dimContainers != null && dimContainers.remove(pos) != null;
+      } finally {
+         this.lock.writeLock().unlock();
+      }
    }
 
    public int removeEmptyContainers() {

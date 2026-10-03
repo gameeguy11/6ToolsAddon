@@ -2,6 +2,7 @@ package gamerguy11.sixtoolsaddon.modules.utility;
 
 import com.google.gson.Gson;
 import gamerguy11.sixtoolsaddon.SixToolsAddon;
+import gamerguy11.sixtoolsaddon.utils.ChatNames;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -63,7 +64,7 @@ public class DiscordNotifier extends Module {
       this.sendDeathCoords = this.sgGeneral.add(((BoolSetting.Builder)((BoolSetting.Builder)((BoolSetting.Builder)(new BoolSetting.Builder()).name("send-death-coords")).description("Forwards your coordinates to your Discord webhook whenever you die.")).defaultValue(false)).build());
       this.sendKills = this.sgGeneral.add(((BoolSetting.Builder)((BoolSetting.Builder)((BoolSetting.Builder)(new BoolSetting.Builder()).name("send-kills")).description("Forwards the name of any player you killed to your Discord webhook.")).defaultValue(false)).build());
       this.sendKilledBy = this.sgGeneral.add(((BoolSetting.Builder)((BoolSetting.Builder)((BoolSetting.Builder)(new BoolSetting.Builder()).name("send-killed-by")).description("Forwards the name of whoever killed you to your Discord webhook.")).defaultValue(false)).build());
-      this.deathPattern = this.sgGeneral.add(((StringSetting.Builder)((StringSetting.Builder)((StringSetting.Builder)(new StringSetting.Builder()).name("death-pattern")).description("Regex used to detect death messages. Named group <victim> must be the player who died; named group <killer>, if present, is whoever killed them.")).defaultValue("^(?<victim>[A-Za-z0-9_]{1,16}) (?:was slain by|was shot by|was fireballed by|was killed by|was pummeled by|was impaled by|was stung to death by|was poked to death by|was killed trying to hurt|was doomed to fall by|was blown up by|was shot off some vertical surface by|walked into a cactus while trying to escape|drowned|died|blew up|hit the ground too hard|fell from a high place|fell off|went up in flames|burned to death|was burned to a crisp|tried to swim in lava|suffocated in a wall|froze to death|starved to death|withered away|was struck by lightning)(?:.*?\\bby (?<killer>[A-Za-z0-9_]{1,16}))?")).build());
+      this.deathPattern = this.sgGeneral.add(((StringSetting.Builder)((StringSetting.Builder)((StringSetting.Builder)(new StringSetting.Builder()).name("death-pattern")).description("Regex used to detect death messages. Named group <victim> must be the player who died; named group <killer>, if present, is whoever killed them.")).defaultValue("^(?:\\[[^\\]]*\\]|[^A-Za-z0-9_])*(?<victim>[A-Za-z0-9_]{1,16}) (?:was slain|was shot|was fireballed|was killed|was pummeled|was impaled|was stung to death|was poked to death|was doomed to fall|was blown up|was shot off some vertical surface|walked into a cactus|drowned|died|blew up|hit the ground too hard|fell from a high place|fell off|went up in flames|burned to death|was burned to a crisp|tried to swim in lava|suffocated in a wall|froze to death|starved to death|withered away|was struck by lightning)(?:.*?\\b(?:by|hurt|escape|fighting) (?<killer>[A-Za-z0-9_]{1,16}))?")).build());
       this.webhookUrl = this.sgGeneral.add(((StringSetting.Builder)((StringSetting.Builder)((StringSetting.Builder)((StringSetting.Builder)(new StringSetting.Builder()).name("webhook-url")).description("Discord webhook URL. Use .setdiscord set/clear to manage this.")).defaultValue("")).visible(() -> false)).build());
       this.queue = new ConcurrentLinkedQueue();
    }
@@ -114,7 +115,7 @@ public class DiscordNotifier extends Module {
          String username = client.getSession().getUsername();
          if (username != null && !username.isEmpty()) {
             String prefix = "<" + username + ">";
-            return text.regionMatches(true, 0, prefix, 0, prefix.length());
+            return text.regionMatches(true, 0, prefix, 0, prefix.length()) || ChatNames.startsWithSender(text, username);
          } else {
             return false;
          }

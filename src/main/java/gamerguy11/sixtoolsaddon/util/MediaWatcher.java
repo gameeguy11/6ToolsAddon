@@ -10,7 +10,23 @@ public final class MediaWatcher {
    public static final MediaWatcher INSTANCE = new MediaWatcher();
 
    private static final long IDLE_TIMEOUT_MS = 15000L;
-   private static final boolean WINDOWS = System.getProperty("os.name", "").toLowerCase().contains("win");
+   private static final String OS = System.getProperty("os.name", "").toLowerCase();
+   private static final boolean WINDOWS = OS.contains("win");
+   private static final boolean LINUX = OS.contains("linux");
+
+   private static final String LINUX_SCRIPT =
+      "command -v playerctl >/dev/null 2>&1 || { echo MISSING; exit 0; }; "
+      + "FMT='{{status}}\t{{artist}}\t{{title}}'; "
+      + "while true; do "
+      + "pick=''; "
+      + "for p in $(playerctl -l 2>/dev/null); do "
+      + "if [ \"$(playerctl -p \"$p\" status 2>/dev/null)\" = \"Playing\" ]; then pick=\"$p\"; break; fi; "
+      + "done; "
+      + "if [ -n \"$pick\" ]; then out=$(playerctl -p \"$pick\" metadata --format \"$FMT\" 2>/dev/null | head -n 1 | tr -d '\\r'); "
+      + "else out=$(playerctl metadata --format \"$FMT\" 2>/dev/null | head -n 1 | tr -d '\\r'); fi; "
+      + "if [ -n \"$out\" ]; then echo \"$out\"; else printf 'None\\t\\t\\n'; fi; "
+      + "sleep 1; "
+      + "done";
 
    private static final String SCRIPT = """
       [Console]::OutputEncoding = [Text.Encoding]::UTF8
@@ -22,7 +38,9 @@ public final class MediaWatcher {
       $mgr = Await ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]::RequestAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager])
       while ($true) {
         try {
-          $s = $mgr.GetCurrentSession()
+          $s = $null
+          foreach ($c in $mgr.GetSessions()) { if ($c.GetPlaybackInfo().PlaybackStatus -eq 'Playing') { $s = $c; break } }
+          if (-not $s) { $s = $mgr.GetCurrentSession() }
           if ($s) {
             $p = Await ($s.TryGetMediaPropertiesAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties])
             $st = $s.GetPlaybackInfo().PlaybackStatus
@@ -39,7 +57,9 @@ public final class MediaWatcher {
    private volatile String artist = "";
    private volatile boolean playing = false;
    private volatile boolean running = false;
+   private volatile boolean missingTool = false;
    private volatile long lastRequested = 0L;
+   private volatile long lastStarted = 0L;
    private Process process;
 
    private MediaWatcher() {
@@ -47,13 +67,23 @@ public final class MediaWatcher {
 
    public void request() {
       this.lastRequested = System.currentTimeMillis();
-      if (WINDOWS && !this.running) {
-         this.start();
+      if ((WINDOWS || LINUX) && !this.running) {
+         if (!this.missingTool || this.lastRequested - this.lastStarted > 30000L) {
+            this.start();
+         }
       }
    }
 
    public boolean isSupported() {
-      return WINDOWS;
+      return WINDOWS || LINUX;
+   }
+
+   public boolean isToolMissing() {
+      return this.missingTool;
+   }
+
+   public static String platformHint() {
+      return LINUX ? "Install playerctl" : "Windows or Linux only";
    }
 
    public String getTitle() {
@@ -77,6 +107,7 @@ public final class MediaWatcher {
          return;
       }
       this.running = true;
+      this.lastStarted = System.currentTimeMillis();
       Thread thread = new Thread(this::run, "6Tools-MediaWatcher");
       thread.setDaemon(true);
       thread.start();
@@ -84,10 +115,15 @@ public final class MediaWatcher {
 
    private void run() {
       try {
-         String encoded = Base64.getEncoder().encodeToString(SCRIPT.getBytes(StandardCharsets.UTF_16LE));
-         ProcessBuilder builder = new ProcessBuilder(
-            "powershell.exe", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden",
-            "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded);
+         ProcessBuilder builder;
+         if (WINDOWS) {
+            String encoded = Base64.getEncoder().encodeToString(SCRIPT.getBytes(StandardCharsets.UTF_16LE));
+            builder = new ProcessBuilder(
+               "powershell.exe", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden",
+               "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded);
+         } else {
+            builder = new ProcessBuilder("sh", "-c", LINUX_SCRIPT);
+         }
          builder.redirectError(ProcessBuilder.Redirect.DISCARD);
          this.process = builder.start();
 
@@ -112,6 +148,11 @@ public final class MediaWatcher {
    }
 
    private void parse(String line) {
+      if (line.trim().equals("MISSING")) {
+         this.missingTool = true;
+         return;
+      }
+      this.missingTool = false;
       String[] parts = line.split("\t", -1);
       if (parts.length < 3) {
          return;

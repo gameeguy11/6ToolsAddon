@@ -2,6 +2,7 @@ package gamerguy11.sixtoolsaddon.modules.utility;
 
 import gamerguy11.sixtoolsaddon.SixToolsAddon;
 import gamerguy11.sixtoolsaddon.systems.enemies.Enemies;
+import gamerguy11.sixtoolsaddon.utils.ChatNames;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -60,7 +61,7 @@ public class ChatHighlighter extends Module {
       Objects.requireNonNull(var10003);
       this.nearbyRange = var10001.add(((DoubleSetting.Builder)var10002.visible(var10003::get)).build());
       this.customPlayers = this.sgGeneral.add(((StringListSetting.Builder)((StringListSetting.Builder)((StringListSetting.Builder)(new StringListSetting.Builder()).name("custom-players")).description("Specific players to highlight. Use \"Name:RRGGBB\" (e.g. Steve:FF8800) for a specific color, or just \"Name\" for a default purple. Overrides every other highlight.")).defaultValue(new ArrayList())).build());
-      this.usernamePattern = this.sgGeneral.add(((StringSetting.Builder)((StringSetting.Builder)((StringSetting.Builder)(new StringSetting.Builder()).name("username-pattern")).description("Regex used to find the sender's name at the start of a chat line. Capture group 1 must be the name.")).defaultValue("([A-Za-z0-9_]{2,16})")).build());
+      this.usernamePattern = this.sgGeneral.add(((StringSetting.Builder)((StringSetting.Builder)((StringSetting.Builder)(new StringSetting.Builder()).name("username-pattern")).description("Regex used to find player names in the part of a chat line before the message (rank prefixes are skipped automatically). Capture group 1 must be the name.")).defaultValue("([A-Za-z0-9_]{2,16})")).build());
       this.selfColor = this.sgColors.add(((ColorSetting.Builder)((ColorSetting.Builder)(new ColorSetting.Builder()).name("self-color")).description("Color for your own name.")).defaultValue(new SettingColor(SixToolsAddon.THEME_COLOR.r, SixToolsAddon.THEME_COLOR.g, SixToolsAddon.THEME_COLOR.b)).build());
       this.friendColor = this.sgColors.add(((ColorSetting.Builder)((ColorSetting.Builder)(new ColorSetting.Builder()).name("friend-color")).description("Color for players on your Meteor friends list.")).defaultValue(new SettingColor(75, 225, 75)).build());
       this.enemyColor = this.sgColors.add(((ColorSetting.Builder)((ColorSetting.Builder)(new ColorSetting.Builder()).name("enemy-color")).description("Color for players on your enemies list.")).defaultValue(new SettingColor(225, 75, 75)).build());
@@ -73,38 +74,63 @@ public class ChatHighlighter extends Module {
       Text message = event.getMessage();
       List<Segment> segments = this.collectSegments(message);
       String plain = this.joinSegments(segments);
-      if (!plain.isEmpty()) {
-         if (!plain.contains("[Chat Highlight]")) {
-            Pattern pattern = this.compilePattern();
-            if (pattern != null) {
-               Matcher matcher = pattern.matcher(plain);
-               boolean matched = matcher.find() && matcher.groupCount() >= 1;
-               if ((Boolean)this.debug.get()) {
-                  this.info("HL DEBUG: [%s] matched=%s", new Object[]{this.escapeNonAscii(plain), matched});
-               }
+      if (plain.isEmpty() || plain.contains("[Chat Highlight]")) {
+         return;
+      }
 
-               if (matched) {
-                  String name = matcher.group(1);
-                  if (name != null && !name.isEmpty()) {
-                     SettingColor color = this.colorFor(name);
-                     if ((Boolean)this.debug.get()) {
-                        String selfName = this.mc.player == null ? "null" : this.mc.player.getName().getString();
-                        this.info("HL DEBUG: name='%s' isSelf=%s selfName='%s' isFriend=%s isEnemy=%s color=%s", new Object[]{name, this.isSelf(name), selfName, Friends.get().get(name) != null, Enemies.get().isEnemy(name), color == null ? "null" : color.r + "," + color.g + "," + color.b});
-                     }
+      Pattern pattern = this.compilePattern();
+      if (pattern == null) {
+         return;
+      }
 
-                     if (color != null) {
-                        try {
-                           event.setMessage(this.highlightRange(segments, matcher.start(1), matcher.end(1), color));
-                        } catch (RuntimeException e) {
-                           this.error("Failed to highlight name '%s': %s", new Object[]{name, e.toString()});
-                        }
-
-                     }
-                  }
-               }
-            }
+      boolean debugOn = this.debug.get();
+      int headerEnd = ChatNames.headerEnd(plain);
+      List<int[]> found = this.findNames(pattern, plain, headerEnd);
+      if (found.isEmpty() && headerEnd < plain.length()) {
+         List<int[]> fallback = this.findNames(pattern, plain, plain.length());
+         if (!fallback.isEmpty()) {
+            found.add(fallback.get(0));
          }
       }
+
+      if (debugOn) {
+         this.info("HL DEBUG: [%s] candidates=%d", new Object[]{this.escapeNonAscii(plain), found.size()});
+      }
+
+      for (int i = found.size() - 1; i >= 0; i--) {
+         int[] range = found.get(i);
+         String name = plain.substring(range[0], range[1]);
+         SettingColor color = this.colorFor(name);
+         if (debugOn) {
+            String selfName = this.mc.player == null ? "null" : this.mc.player.getName().getString();
+            this.info("HL DEBUG: name='%s' isSelf=%s selfName='%s' isFriend=%s isEnemy=%s isNearby=%s color=%s", new Object[]{name, this.isSelf(name), selfName, Friends.get().get(name) != null, Enemies.get().isEnemy(name), this.isNearby(name), color == null ? "null" : color.r + "," + color.g + "," + color.b});
+         }
+
+         if (color != null) {
+            try {
+               event.setMessage(this.highlightRange(segments, range[0], range[1], color));
+            } catch (RuntimeException e) {
+               this.error("Failed to highlight name '%s': %s", new Object[]{name, e.toString()});
+            }
+
+            return;
+         }
+      }
+   }
+
+   private List<int[]> findNames(Pattern pattern, String text, int end) {
+      List<int[]> result = new ArrayList<>();
+      Matcher matcher = pattern.matcher(text);
+      matcher.useAnchoringBounds(false);
+      matcher.useTransparentBounds(true);
+      matcher.region(0, end);
+      while (matcher.find()) {
+         if (matcher.groupCount() >= 1 && matcher.group(1) != null && !matcher.group(1).isEmpty()) {
+            result.add(new int[]{matcher.start(1), matcher.end(1)});
+         }
+      }
+
+      return result;
    }
 
    private String escapeNonAscii(String text) {
