@@ -26,8 +26,6 @@ public class PvPNeccessaryHud extends HudElement {
    private final SettingGroup sgScale;
    private final SettingGroup sgBackground;
    private final Setting<List<Item>> items;
-   private final Setting<SettingColor> textColor;
-   private final Setting<Boolean> textColorUseTheme;
    public final Setting<Integer> margin;
    public final Setting<Boolean> customScale;
    public final Setting<Double> scale;
@@ -41,8 +39,6 @@ public class PvPNeccessaryHud extends HudElement {
       this.sgScale = this.settings.createGroup("Scale");
       this.sgBackground = this.settings.createGroup("Background");
       this.items = this.sgGeneral.add(((ItemListSetting.Builder)((ItemListSetting.Builder)(new ItemListSetting.Builder()).name("items")).description("Items to display.")).defaultValue(new Item[]{Items.TOTEM_OF_UNDYING, Items.ENDER_PEARL, Items.END_CRYSTAL, Items.OBSIDIAN}).build());
-      this.textColor = this.sgGeneral.add(((ColorSetting.Builder)((ColorSetting.Builder)(new ColorSetting.Builder()).name("text-color")).description("Color of the item count text.")).defaultValue(new SettingColor(255, 255, 255, 255)).build());
-      this.textColorUseTheme = this.sgGeneral.add(((BoolSetting.Builder)((BoolSetting.Builder)((BoolSetting.Builder)(new BoolSetting.Builder()).name("text-use-theme")).description("Use the current Meteor theme accent color.")).defaultValue(false)).build());
       this.margin = this.sgScale.add(((IntSetting.Builder)((IntSetting.Builder)((IntSetting.Builder)((IntSetting.Builder)(new IntSetting.Builder()).name("margin")).description("Space between items.")).defaultValue(0)).onChanged((aInt) -> this.calculateSize())).min(0).sliderRange(0, 10).build());
       this.customScale = this.sgScale.add(((BoolSetting.Builder)((BoolSetting.Builder)((BoolSetting.Builder)((BoolSetting.Builder)(new BoolSetting.Builder()).name("custom-scale")).description("Applies a custom scale to this HUD element.")).defaultValue(false)).onChanged((aBoolean) -> this.calculateSize())).build());
       SettingGroup var10001 = this.sgScale;
@@ -66,65 +62,30 @@ public class PvPNeccessaryHud extends HudElement {
 
    private void calculateSize() {
       float currentScale = this.getScale();
-      int count = ((List)this.items.get()).size();
-      this.setSize((double)(23.0F * currentScale * (float)count), (double)(17.0F * currentScale + 20.0F));
+      int count = this.items.get().size();
+      double slotSize = 18.0D * currentScale;
+      double width = count == 0 ? 0.0D : slotSize * count + (double)(this.margin.get() * (count - 1));
+      this.setSize(width, slotSize);
    }
 
    public void render(HudRenderer renderer) {
       this.calculateSize();
-      int itemsLength = ((List)this.items.get()).size();
-      int scaleOffset = (int)(this.getScale() * 10.0F);
-      int intScale = (int)this.getScale();
 
-      for(int i = 0; i < itemsLength; ++i) {
-         Item item = (Item)((List)this.items.get()).get(i);
-         ItemStack itemStack = new ItemStack(item, InvUtils.find(new Item[]{item}).count());
-         int offset = i == 0 ? 0 : i * 50 * scaleOffset / (20 - (Integer)this.margin.get());
-         int textXOffset = 6 * intScale;
-         int textYOffset = 17 * intScale;
-         if (itemStack.getCount() > 100) {
-            textXOffset -= 6 * intScale;
-         } else if (itemStack.getCount() > 10) {
-            textXOffset -= 2 * intScale;
-         }
-
-         int finalTextXOffset = textXOffset;
-         renderer.post(() -> {
-            this.renderItem(renderer, itemStack, this.x + offset, this.y);
-            this.renderText(renderer, itemStack, (double)(this.x + offset + finalTextXOffset), (double)(this.y + textYOffset));
-         });
-      }
-
-      if ((Boolean)this.background.get()) {
+      if (this.background.get()) {
          renderer.quad((double)this.x, (double)this.y, (double)this.getWidth(), (double)this.getHeight(), ThemeColorUtils.resolve((SettingColor)this.backgroundColor.get(), (Boolean)this.backgroundColorUseTheme.get()));
       }
 
-   }
+      double slotSize = 18.0D * this.getScale();
+      double iconInset = 1.0D * this.getScale();
+      List<Item> list = this.items.get();
 
-   private void renderItem(HudRenderer renderer, ItemStack itemStack, int x, int y) {
-      boolean resetToZero = false;
-      if (itemStack.isEmpty()) {
-         itemStack.setCount(1);
-         resetToZero = true;
-      }
-
-      renderer.item(itemStack, x, y, this.getScale(), false);
-      if (resetToZero) {
-         itemStack.setCount(0);
-      }
-
-   }
-
-   private void renderText(HudRenderer renderer, ItemStack itemStack, double x, double y) {
-      boolean resetToZero = false;
-      if (itemStack.isEmpty()) {
-         itemStack.setCount(1);
-         resetToZero = true;
-      }
-
-      renderer.text(Integer.toString(itemStack.getCount()), x, y, ThemeColorUtils.resolve((SettingColor)this.textColor.get(), (Boolean)this.textColorUseTheme.get()), true, (double)(this.getScale() / 2.0F));
-      if (resetToZero) {
-         itemStack.setCount(0);
+      for(int i = 0; i < list.size(); ++i) {
+         Item item = list.get(i);
+         int count = this.isInEditor() ? 64 : InvUtils.find(new Item[]{item}).count();
+         double slotX = (double)this.x + i * (slotSize + (double)this.margin.get());
+         boolean drawCount = count > 0;
+         String countOverlay = drawCount ? Integer.toString(count) : null;
+         renderer.item(new ItemStack(item, 1), (int)(slotX + iconInset), (int)((double)this.y + iconInset), this.getScale(), drawCount, countOverlay);
       }
 
    }

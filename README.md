@@ -792,6 +792,37 @@ turn individual stats on or off in the **Stats** setting group.
   list setting.
 </details>
 
+<details>
+<summary> Watermark</summary>
+
+Shows your 6Tools version on screen as text, an image, or both. Drag it onto your screen
+from the HUD editor, where it's listed as **Watermark** under the 6Tools Addon group. By
+default it shows the 6Tools icon in front of the text `6Tools <version>`.
+
+- `display`, `Image and Text` (default) puts the image in front of the text, `Text` shows
+  only the text, `Image` shows only the image.
+- `text`, what the text says. `{version}` is replaced with your current 6Tools version
+  (it updates by itself every build) and `{name}` with `6Tools`. The default is
+  `{name} {version}`. You can write anything around them, e.g. `6Tools v{version} | 6b6t`.
+- `color`, the text color. `color-use-theme` uses your current Meteor theme accent color
+  instead. `shadow` toggles the shadow behind the text.
+- **Image**: `default-icon`, uses the 6Tools icon (the addon's own `icon.png`) whenever no
+  image file is set. Turn it off to show no image until you set one, or set `display` to
+  `Text` to drop the image entirely.
+  `image`, the file name of an image in
+  `.minecraft/config/sixtoolsaddon/watermark/` (the folder is created for you), or a full
+  path like `C:\Users\you\Pictures\logo.png`. Leave it empty to use the 6Tools icon.
+  PNG works best, JPG, GIF and BMP also load. Big images are shrunk automatically.
+  `image-height`, height in pixels, the width follows the picture's proportions.
+  `gap`, space between the image and the text. `tint-image`, multiplies the image by the
+  text color, handy for one-color logos.
+- **Scale**: optional `custom-scale` independent of the global HUD text scale.
+
+Changing the image file (replacing it or editing it) is picked up within about a second, no
+restart needed. If the image can't be found or loaded, the element shows just the text (or,
+in `Image` mode, nothing outside the HUD editor, where it says "No image").
+</details>
+
 ---
 
 ## Enemies List

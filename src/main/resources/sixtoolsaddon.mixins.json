@@ -11,6 +11,7 @@
     "anarchymod.BlockedServersMixin",
     "anarchymod.JoinNotifierMixin",
     "splash.SplashTextResourceSupplierMixin",
+    "splash.TitleScreenSplashClickMixin",
     "sound.MixinWWidget",
     "sound.MixinModule",
     "swing.LivingEntitySwingAccessor",

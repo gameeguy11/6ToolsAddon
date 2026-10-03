@@ -24,6 +24,7 @@ import gamerguy11.sixtoolsaddon.hud.NowPlayingHud;
 import gamerguy11.sixtoolsaddon.hud.PlayerTrackerHud;
 import gamerguy11.sixtoolsaddon.hud.PvPNeccessaryHud;
 import gamerguy11.sixtoolsaddon.hud.StatsHud;
+import gamerguy11.sixtoolsaddon.hud.Watermark;
 import gamerguy11.sixtoolsaddon.modules.AutoStashSorter;
 import gamerguy11.sixtoolsaddon.modules.AutoStashSorterSelectionHandler;
 import gamerguy11.sixtoolsaddon.modules.CsgoSpin;
@@ -141,6 +142,7 @@ public class SixToolsAddon extends MeteorAddon {
       Hud.get().register(PvPNeccessaryHud.INFO);
       Hud.get().register(DimensionCoords.INFO);
       Hud.get().register(NowPlayingHud.INFO);
+      Hud.get().register(Watermark.INFO);
    }
 
    public void onRegisterCategories() {
