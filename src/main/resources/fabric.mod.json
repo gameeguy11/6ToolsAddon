@@ -13,9 +13,9 @@
     "Plumbiller (Whisper Logger is adapted from their PlumbillerPublic: https://github.com/Plumbiller/PlumbillerPublic)"
   ],
   "contact": {
-    "homepage": "https://github.com/gameeguy11/6ToolsAddon-/commits/master",
-    "sources": "https://github.com/gameeguy11/6ToolsAddon-",
-    "issues": "https://github.com/gameeguy11/6ToolsAddon-/issues"
+    "homepage": "https://github.com/gameeguy11/6ToolsAddon/commits/master",
+    "sources": "https://github.com/gameeguy11/6ToolsAddon",
+    "issues": "https://github.com/gameeguy11/6ToolsAddon/issues"
   },
   "environment": "client",
   "entrypoints": {

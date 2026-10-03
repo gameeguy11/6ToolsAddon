@@ -4,11 +4,11 @@ A [Meteor Client](https://github.com/MeteorDevelopment/meteor-client) addon for 
 **1.21.11**, built for the 6b6t anarchy server.
 
 [![Minecraft](https://img.shields.io/badge/minecraft-1.21.11-green)](https://www.minecraft.net/)
-[![Release](https://img.shields.io/github/v/release/gameeguy11/6ToolsAddon-)](https://github.com/gameeguy11/6ToolsAddon-/releases)
-[![Downloads](https://img.shields.io/github/downloads/gameeguy11/6ToolsAddon-/total)](https://github.com/gameeguy11/6ToolsAddon-/releases)
-[![Stars](https://img.shields.io/github/stars/gameeguy11/6ToolsAddon-)](https://github.com/gameeguy11/6ToolsAddon-/stargazers)
-[![Code Size](https://img.shields.io/github/languages/code-size/gameeguy11/6ToolsAddon-)](https://github.com/gameeguy11/6ToolsAddon-)
-[![Issues](https://img.shields.io/github/issues/gameeguy11/6ToolsAddon-)](https://github.com/gameeguy11/6ToolsAddon-/issues)
+[![Release](https://img.shields.io/github/v/release/gameeguy11/6ToolsAddon)](https://github.com/gameeguy11/6ToolsAddon/releases)
+[![Downloads](https://img.shields.io/github/downloads/gameeguy11/6ToolsAddon/total)](https://github.com/gameeguy11/6ToolsAddon/releases)
+[![Stars](https://img.shields.io/github/stars/gameeguy11/6ToolsAddon)](https://github.com/gameeguy11/6ToolsAddon/stargazers)
+[![Code Size](https://img.shields.io/github/languages/code-size/gameeguy11/6ToolsAddon)](https://github.com/gameeguy11/6ToolsAddon)
+[![Issues](https://img.shields.io/github/issues/gameeguy11/6ToolsAddon)](https://github.com/gameeguy11/6ToolsAddon/issues)
 
 [![Discord](https://invidget.switchblade.xyz/fdHkyVYc8)](https://discord.gg/fdHkyVYc8)
 <!--

@@ -74,7 +74,7 @@ public class SixToolsAddon extends MeteorAddon {
    public static final Category CATEGORY = new Category("6Tools Addon");
    public static final HudGroup HUD_GROUP = new HudGroup("6Tools Addon");
    public static final Color THEME_COLOR = new Color(0, 182, 182);
-   private static final GithubRepo REPO = new GithubRepo("gameeguy11", "6ToolsAddon-");
+   private static final GithubRepo REPO = new GithubRepo("gameeguy11", "6ToolsAddon");
    private static final String FIRST_COMMIT = "0e646b42cc8ab11c24a48417f14d295d393a09a7";
 
    public GithubRepo getRepo() {

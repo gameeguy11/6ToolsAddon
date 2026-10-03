@@ -25,8 +25,8 @@ public final class CustomSplashes {
    }
 
    private static final String ADDON_ID = "sixtoolsaddon";
-   private static final String GITHUB_URL = "https://github.com/gameeguy11/6ToolsAddon-";
-   private static final String LATEST_API = "https://api.github.com/repos/gameeguy11/6ToolsAddon-/releases/latest";
+   private static final String GITHUB_URL = "https://github.com/gameeguy11/6ToolsAddon";
+   private static final String LATEST_API = "https://api.github.com/repos/gameeguy11/6ToolsAddon/releases/latest";
    private static final Random RANDOM = new Random();
    private static final Map<Object, Splash> RENDERED = Collections.synchronizedMap(new WeakHashMap<>());
    private static final AtomicBoolean CHECK_STARTED = new AtomicBoolean();
@@ -36,7 +36,7 @@ public final class CustomSplashes {
       .orElse("unknown");
    private static final List<Splash> FIXED = List.of(
       new Splash("JOIN CHICKEN CULT \u00a7#00B6B6\u00a7l\u00a7nCLICK ME", "https://discord.gg/HX6rSFg3k"),
-      new Splash("Report issues here", "https://github.com/gameeguy11/6ToolsAddon-/issues"),
+      new Splash("Report issues here", "https://github.com/gameeguy11/6ToolsAddon/issues"),
       new Splash("Skidded by Lucky1821", "https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
       new Splash("Based anarchy mod.", null)
    );
