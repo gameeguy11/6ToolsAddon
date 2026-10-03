@@ -47,6 +47,7 @@ import gamerguy11.sixtoolsaddon.modules.utility.ChatHighlighter;
 import gamerguy11.sixtoolsaddon.modules.utility.DeathLogger;
 import gamerguy11.sixtoolsaddon.modules.utility.DiscordNotifier;
 import gamerguy11.sixtoolsaddon.modules.utility.Homes;
+import gamerguy11.sixtoolsaddon.modules.utility.SocialSync;
 import gamerguy11.sixtoolsaddon.modules.utility.ShulkerView;
 import gamerguy11.sixtoolsaddon.modules.utility.SoundEditor;
 import gamerguy11.sixtoolsaddon.modules.utility.WhisperLogger;
@@ -96,6 +97,7 @@ public class SixToolsAddon extends MeteorAddon {
       Modules.get().add(new AutoTpAccept());
       Modules.get().add(new Homes());
       Modules.get().add(new AutoReturnHome());
+      Modules.get().add(new SocialSync());
       Modules.get().add(new DiscordNotifier());
       Modules.get().add(new ChatHighlighter());
       Modules.get().add(new ShulkerView());

@@ -404,6 +404,89 @@ If a name matches more than one category, priority is self > friend > enemy.
 </details>
 
 <details>
+<summary> social-sync</summary>
+
+Keeps your friends and enemies identical across **Meteor**, **Mio**, **RusherHack** and
+**Lambda**, so adding or removing someone in one client shows up in the others. Meteor's
+friends and this addon's enemies list (see Enemies List below) count as the Meteor side.
+
+Enable the module and it works on its own: it never needs to be told which client you used
+last. A client that isn't installed is simply skipped, so you can leave any of them out.
+The module's settings window also has a **Sync now** button, and the module reports in chat
+which clients it found when you turn it on.
+
+**How each client is synced**
+
+| Client | How | Notes |
+|--------|-----|-------|
+| Meteor | live, through the addon | friends and enemies |
+| RusherHack | live, through RusherHack's plugin API | friends and enemies. Falls back to `.minecraft/rusherhack/config/relations.json` if the API isn't available |
+| Lambda | live, in memory | friends only (Lambda has no enemies). Names are turned into UUIDs through Mojang |
+| Mio | `.minecraft/mio-fabric/socials.json` plus a sync on exit | Mio keeps its list in memory and rewrites the file when it closes, so it can't be updated live |
+
+Mio's file looks like `{"socials": [{"name", "role"}]}`, where role is `friend` or `enemy`.
+
+**How it works**
+
+Every `interval-ticks` (default 40, about 2 seconds) the module checks whether anything
+changed in any client. If so, it works out what changed on each side and applies it everywhere.
+
+To tell "you deleted Bob" apart from "this client never had Bob", the module saves a snapshot
+of the last synced state in `meteor-client/sixtoolsaddon-social-sync.json`. Each client is
+compared against that snapshot:
+
+- A name in a client but not in the snapshot was **added** there, so it's added everywhere.
+- A name in the snapshot but gone from a client was **removed** there, so it's removed everywhere.
+- A name whose role differs from the snapshot (friend to enemy, or back) was **changed**
+  there, so everyone follows.
+- If two clients change the same name in different ways at once, `priority` decides. With
+  priority `Off`, the order is Mio, then RusherHack, then Meteor.
+
+Names are matched case-insensitively, and a name is only ever a friend or an enemy, never both.
+
+**Settings**
+
+- `priority`, `Off` (default), `Meteor`, `Mio`, `RusherHack` or `Lambda`. The chosen client wins
+  when the same name is changed in several places at once. A change made in that client always
+  goes through everywhere.
+- `overwrite-others`, shown when a priority is set. Makes the priority client the source of
+  truth: the other lists are overwritten to match it exactly, including removing entries only
+  they have. Because Mio only saves on exit, avoid this with priority `Mio` unless you manage
+  your friends in Mio.
+- `interval-ticks`, how often to check for changes.
+- `sync-on-exit` (on by default), waits for Mio's own write when the game closes, then merges
+  everything back into Mio's file so the next launch has the right list. It only merges and
+  never mirrors, even when a priority is set. A crash or force-kill skips it.
+- `mio`, `rusherhack`, `lambda`, turn syncing with each client on or off.
+- `mio-file`, `rusherhack-file`, full paths to Mio's `socials.json` and RusherHack's
+  `relations.json`. Leave empty to auto-detect inside the game folder (useful for launchers
+  with separate instances).
+- **Sync now** button, runs a full sync immediately. With a priority set, it mirrors everything
+  to that client.
+
+**Safety**
+
+- A client that is new to the sync, or whose list is missing, never counts as "deleted
+  everything". A new client's names are added, and a missing file is skipped.
+- On the first check after startup, if a list is empty while the snapshot isn't, that check
+  is skipped instead of wiping the other lists.
+- Before the first write each session the module copies Mio's and RusherHack's files to
+  `.bak` files next to them.
+- File writes go to a temporary file first and are then moved into place, so a client never
+  reads a half-written file. Fields the module doesn't manage (like RusherHack's `alias`) are
+  kept as they are.
+
+**Limitations**
+
+- Lambda needs a real account name to find a UUID. Cracked names that Mojang doesn't know stay
+  pending and never reach Lambda.
+- Mio can't be updated while it's running. A friend added in another client shows up in Mio
+  after you close the game and start it again.
+- If you upgraded from the old `mio-sync` module, your sync history is picked up automatically
+  from `sixtoolsaddon-mio-sync.json`.
+</details>
+
+<details>
 <summary> death-logger</summary>
 
 Logs the coordinates and dimension of every death to a local text file, and gives you a
@@ -716,7 +799,7 @@ A global enemies list, separate from Player Tracker's and Auto TP Accept's own
 independent `enemy-names` settings (each of those predates this and still keeps its own
 list). This one is shared by **Chat Highlighter**, **Sound Editor**'s `enemy_spotted`
 sound, and the new `.onlineplayers enemys` command, and persists to
-`.minecraft/config/sixtoolsaddon-enemies.txt`. `.enemy add`/`.enemy remove` tab-complete
+`.minecraft/config/sixtoolsaddon-enemies.txt`. The **social-sync** module can keep it matched with Mio and RusherHack. `.enemy add`/`.enemy remove` tab-complete
 (add suggests currently loaded player names, remove suggests names already on the list).
 
 ## Commands
