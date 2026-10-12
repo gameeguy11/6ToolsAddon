@@ -5,6 +5,7 @@ run/
 out/
 *.iml
 *.class
+worker/.wrangler/
 .DS_Store
 version.properties
 /src/main/java/gamerguy11/sixtoolsaddon/modules/world/Printer.java

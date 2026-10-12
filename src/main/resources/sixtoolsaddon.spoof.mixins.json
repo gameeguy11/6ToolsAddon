@@ -1,0 +1,15 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "gamerguy11.sixtoolsaddon.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "spoof.DebugHudLinesMixin",
+    "spoof.BetterF3CoordsMixin",
+    "spoof.BetterF3TargetMixin",
+    "spoof.BetterF3ChunksMixin",
+    "spoof.KeyboardClipboardMixin",
+    "spoof.XaeroMinimapInfoMixin",
+    "spoof.XaeroWorldMapMixin"
+  ]
+}

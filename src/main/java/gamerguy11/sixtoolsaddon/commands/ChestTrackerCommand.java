@@ -1,5 +1,6 @@
 package gamerguy11.sixtoolsaddon.commands;
 
+import gamerguy11.sixtoolsaddon.modules.utility.Spoofer;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -117,7 +118,7 @@ public class ChestTrackerCommand extends Command {
                   double d = Math.sqrt(mc.player.squaredDistanceTo((double)p.getX() + (double)0.5F, (double)p.getY() + (double)0.5F, (double)p.getZ() + (double)0.5F));
                   if (d <= (double)r) {
                      String col = d <= module.getRenderDistance() ? "§a" : "§7";
-                     this.info(String.format("%s[%d,%d,%d] §e%.0fm §b%d§7items%s", col, p.getX(), p.getY(), p.getZ(), d, c.getItems().size(), c.isEmpty() ? " §c✗" : ""), new Object[0]);
+                     this.info(String.format("%s[%d,%d,%d] §e%.0fm §b%d§7items%s", col, Spoofer.spoof(p).getX(), Spoofer.spoof(p).getY(), Spoofer.spoof(p).getZ(), d, c.getItems().size(), c.isEmpty() ? " §c✗" : ""), new Object[0]);
                      ++found;
                   }
                }

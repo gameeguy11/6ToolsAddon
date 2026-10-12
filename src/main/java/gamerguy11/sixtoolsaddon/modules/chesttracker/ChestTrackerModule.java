@@ -1,5 +1,6 @@
 package gamerguy11.sixtoolsaddon.modules.chesttracker;
 
+import gamerguy11.sixtoolsaddon.modules.utility.Spoofer;
 import baritone.api.BaritoneAPI;
 import baritone.api.pathing.goals.GoalGetToBlock;
 import gamerguy11.sixtoolsaddon.SixToolsAddon;
@@ -258,7 +259,7 @@ public class ChestTrackerModule extends Module {
             if (ticksRemaining <= 0) {
                it.remove();
                if ((Boolean)this.debugMode.get()) {
-                  this.info("Removed " + ((BlockPos)entry.getKey()).toShortString() + " from blocked list (cooldown expired)", new Object[0]);
+                  this.info("Removed " + Spoofer.spoof((BlockPos)entry.getKey()).toShortString() + " from blocked list (cooldown expired)", new Object[0]);
                }
             } else {
                entry.setValue(ticksRemaining);
@@ -370,7 +371,7 @@ public class ChestTrackerModule extends Module {
                if (this.currentOpenPositions[0] != null) {
                   this.blockedContainers.put(this.currentOpenPositions[0], 100);
                   if ((Boolean)this.debugMode.get()) {
-                     this.info("Container at " + this.currentOpenPositions[0].toShortString() + " failed to open (timeout), adding to blocked list", new Object[0]);
+                     this.info("Container at " + Spoofer.spoof(this.currentOpenPositions[0]).toShortString() + " failed to open (timeout), adding to blocked list", new Object[0]);
                   }
                }
 
@@ -452,7 +453,7 @@ public class ChestTrackerModule extends Module {
                                  }
 
                                  if ((Boolean)this.debugMode.get()) {
-                                    this.info("Auto-opening container at " + blockPos.toShortString(), new Object[0]);
+                                    this.info("Auto-opening container at " + Spoofer.spoof(blockPos).toShortString(), new Object[0]);
                                  }
 
                                  return;
@@ -461,7 +462,7 @@ public class ChestTrackerModule extends Module {
                               if (result == ActionResult.FAIL) {
                                  this.blockedContainers.put(blockPos.toImmutable(), 100);
                                  if ((Boolean)this.debugMode.get()) {
-                                    this.info("Container at " + blockPos.toShortString() + " is blocked, adding to cooldown list", new Object[0]);
+                                    this.info("Container at " + Spoofer.spoof(blockPos).toShortString() + " is blocked, adding to cooldown list", new Object[0]);
                                  }
                               }
                            }
@@ -515,7 +516,7 @@ public class ChestTrackerModule extends Module {
             GoalGetToBlock goal = new GoalGetToBlock(nearest);
             BaritoneAPI.getProvider().getPrimaryBaritone().getCustomGoalProcess().setGoalAndPath(goal);
             if ((Boolean)this.debugMode.get()) {
-               this.info("Baritone walking to untracked container at " + nearest.toShortString(), new Object[0]);
+               this.info("Baritone walking to untracked container at " + Spoofer.spoof(nearest).toShortString(), new Object[0]);
             }
          }
 

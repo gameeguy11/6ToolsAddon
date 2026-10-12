@@ -1,5 +1,6 @@
 package gamerguy11.sixtoolsaddon.commands;
 
+import gamerguy11.sixtoolsaddon.modules.utility.Spoofer;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import meteordevelopment.meteorclient.commands.Command;
 import meteordevelopment.meteorclient.utils.player.ChatUtils;
@@ -17,7 +18,7 @@ public class CoordsCommand extends Command {
             ChatUtils.error("You must be in-game to use this command.", new Object[0]);
             return 1;
          } else {
-            BlockPos pos = mc.player.getBlockPos();
+            BlockPos pos = Spoofer.spoof(mc.player.getBlockPos());
             String dimension = mc.world.getRegistryKey().getValue().toString();
             int var10000 = pos.getX();
             String coords = var10000 + " " + pos.getY() + " " + pos.getZ();
@@ -31,7 +32,7 @@ public class CoordsCommand extends Command {
             ChatUtils.error("You must be in-game to use this command.", new Object[0]);
             return 1;
          } else {
-            BlockPos pos = mc.player.getBlockPos();
+            BlockPos pos = Spoofer.spoof(mc.player.getBlockPos());
             int var10000 = pos.getX();
             String coords = var10000 + "," + pos.getY() + "," + pos.getZ();
             mc.keyboard.setClipboard(coords);

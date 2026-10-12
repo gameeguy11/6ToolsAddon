@@ -8,8 +8,6 @@
     "shulkerview.MixinHandledScreen",
     "shulkerview.MixinCreativeInventoryScreen",
     "chesttracker.MixinMinecraftClient",
-    "anarchymod.BlockedServersMixin",
-    "anarchymod.JoinNotifierMixin",
     "splash.SplashTextResourceSupplierMixin",
     "splash.TitleScreenSplashClickMixin",
     "sound.MixinWWidget",

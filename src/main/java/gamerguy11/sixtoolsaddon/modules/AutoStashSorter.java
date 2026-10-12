@@ -1,5 +1,6 @@
 package gamerguy11.sixtoolsaddon.modules;
 
+import gamerguy11.sixtoolsaddon.modules.utility.Spoofer;
 import baritone.api.BaritoneAPI;
 import baritone.api.Settings;
 import baritone.api.pathing.goals.GoalGetToBlock;
@@ -264,7 +265,7 @@ public class AutoStashSorter extends Module {
          if (this.selectionDimension.equals(this.currentDimension()) && this.selectionServer.equals(this.currentServer())) {
             if (this.selectionPos1 == null) {
                this.selectionPos1 = pos.toImmutable();
-               this.info("First corner set at %s. Select the opposite corner.", new Object[]{pos.toShortString()});
+               this.info("First corner set at %s. Select the opposite corner.", new Object[]{Spoofer.spoof(pos).toShortString()});
             } else {
                this.currentArea = new SortArea(this.selectionDimension, this.selectionPos1, pos);
                this.areaStore.save(this.selectionServer, this.selectionDimension, this.currentArea);

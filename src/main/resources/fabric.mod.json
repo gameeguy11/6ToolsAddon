@@ -22,7 +22,8 @@
     "meteor": ["gamerguy11.sixtoolsaddon.SixToolsAddon"]
   },
   "mixins": [
-    "sixtoolsaddon.mixins.json"
+    "sixtoolsaddon.mixins.json",
+    "sixtoolsaddon.spoof.mixins.json"
   ],
   "custom": {
     "meteor-client:color": "0,182,182"

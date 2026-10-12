@@ -37,8 +37,7 @@ public final class CustomSplashes {
    private static final List<Splash> FIXED = List.of(
       new Splash("JOIN CHICKEN CULT \u00a7#00B6B6\u00a7l\u00a7nCLICK ME", "https://discord.gg/HX6rSFg3k"),
       new Splash("Report issues here", "https://github.com/gameeguy11/6ToolsAddon/issues"),
-      new Splash("Skidded by Lucky1821", "https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
-      new Splash("Based anarchy mod.", null)
+      new Splash("Skidded by Lucky1821", "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
    );
 
    private static volatile Boolean upToDate;

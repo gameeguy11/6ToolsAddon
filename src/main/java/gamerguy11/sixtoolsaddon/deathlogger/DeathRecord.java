@@ -1,5 +1,7 @@
 package gamerguy11.sixtoolsaddon.deathlogger;
 
+import gamerguy11.sixtoolsaddon.modules.utility.Spoofer;
+import net.minecraft.util.math.BlockPos;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.regex.Matcher;
@@ -55,6 +57,7 @@ public class DeathRecord {
    }
 
    public String coordsString() {
-      return this.x + ", " + this.y + ", " + this.z;
+      BlockPos shown = Spoofer.spoof(new BlockPos(this.x, this.y, this.z));
+      return shown.getX() + ", " + shown.getY() + ", " + shown.getZ();
    }
 }

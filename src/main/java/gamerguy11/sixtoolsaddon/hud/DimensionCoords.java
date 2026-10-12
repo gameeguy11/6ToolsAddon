@@ -1,6 +1,7 @@
 package gamerguy11.sixtoolsaddon.hud;
 
 import gamerguy11.sixtoolsaddon.SixToolsAddon;
+import gamerguy11.sixtoolsaddon.modules.utility.Spoofer;
 import meteordevelopment.meteorclient.MeteorClient;
 import meteordevelopment.meteorclient.settings.BoolSetting;
 import meteordevelopment.meteorclient.settings.ColorSetting;
@@ -48,7 +49,7 @@ public class DimensionCoords extends HudElement {
 
    public void render(HudRenderer renderer) {
       if (MeteorClient.mc.world != null && MeteorClient.mc.player != null) {
-         BlockPos playerPos = MeteorClient.mc.player.getBlockPos();
+         BlockPos playerPos = Spoofer.spoof(MeteorClient.mc.player.getBlockPos());
          Identifier dimensionId = MeteorClient.mc.world.getRegistryKey().getValue();
          double curX = (double)this.x;
          double curY = (double)this.y;

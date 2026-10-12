@@ -1,5 +1,6 @@
 package gamerguy11.sixtoolsaddon.modules;
 
+import gamerguy11.sixtoolsaddon.modules.utility.Spoofer;
 import baritone.api.BaritoneAPI;
 import baritone.api.pathing.goals.GoalBlock;
 import baritone.api.pathing.goals.GoalNear;
@@ -1244,7 +1245,7 @@ public class StashMover extends Module {
          ++this.containerOpenFailures;
          this.info("Container didn't open, attempt " + this.containerOpenFailures + "/10", new Object[0]);
          if (this.containerOpenFailures >= 10) {
-            this.warning("Cannot open container at Y=" + this.currentContainer.pos.getY() + " after 10 attempts", new Object[0]);
+            this.warning("Cannot open container at Y=" + Spoofer.spoof(this.currentContainer.pos).getY() + " after 10 attempts", new Object[0]);
             this.stopAllMovement();
             if (this.isNearInputArea()) {
                this.currentContainer.isEmpty = true;

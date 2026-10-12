@@ -1,5 +1,6 @@
 package gamerguy11.sixtoolsaddon.modules.chesttracker;
 
+import gamerguy11.sixtoolsaddon.modules.utility.Spoofer;
 import com.google.gson.JsonObject;
 import gamerguy11.sixtoolsaddon.modules.stashsorter.logic.ItemRoute;
 import java.util.ArrayList;
@@ -207,9 +208,9 @@ public class TrackedContainer {
          Object[] var10001 = new Object[4];
          String var10004 = this.containerType.substring(0, 1).toUpperCase();
          var10001[0] = var10004 + this.containerType.substring(1);
-         var10001[1] = this.position.getX();
-         var10001[2] = this.position.getY();
-         var10001[3] = this.position.getZ();
+         var10001[1] = Spoofer.spoof(this.position).getX();
+         var10001[2] = Spoofer.spoof(this.position).getY();
+         var10001[3] = Spoofer.spoof(this.position).getZ();
          return String.format("%s [%d, %d, %d]", var10001);
       }
    }

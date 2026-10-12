@@ -18,12 +18,6 @@ A [Meteor Client](https://github.com/MeteorDevelopment/meteor-client) addon for 
 -->
 #### Showcase: https://medal.tv/games/minecraft/clips/nz5q0SlHc9e2K63a6?invite=cr-MSwxcHEsMzIxOTEyMjI1
 
-## Using this addon might give you 2 **FREE** homes
-
-## Unblock Servers
-Prevents known anarchy servers from being flagged as blocked by Mojang's server
-blocklist, so you can actually connect to them.
-
 ## Requirements
 
 | Component     | Version                                                                                                                                      |
@@ -32,7 +26,6 @@ blocklist, so you can actually connect to them.
 | Meteor Client | current 1.21.11 snapshot, check [maven.meteordev.org/snapshots](https://maven.meteordev.org/snapshots/meteordevelopment/meteor-client/)      |
 | Baritone      | a build matching your [Meteor Client](https://meteorclient.com/archive) version when using [Baritone](https://github.com/cabaletta/baritone) |
 | JDK           | 21                                                                                                                                           |
-| AnarchyMod    | The mod is option but if you are using it make sure it's [1.4.3](https://6b6t.kianbrose.com/) |
 ---
 
 ## Modules
@@ -648,6 +641,66 @@ One setting: `out-speed`, multiplier for how fast the outward swing plays (1 = v
 speed, lower = slower; the return to rest always plays at vanilla speed).
 </details>
 
+<details>
+<summary> spoofer</summary>
+
+Shows fake information about you on your own screen, handy when you're streaming or sharing
+your screen. Purely client-side: nothing is sent to the server and nothing in the world
+changes. The fake position is used everywhere the addon and the game display your
+coordinates:
+
+- **F3 debug screen**: `XYZ`, `Block`, `Chunk` including the region file, and
+  `Targeted Block`/`Targeted Fluid`. If a line ever doesn't match the expected format it
+  shows `hidden` instead of leaking the real value. `CPU` and `Display` are hidden too
+  (see `hide-hardware`).
+- **BetterF3**: BetterF3 replaces the F3 screen with its own, so it has separate hooks. The
+  `XYZ`, `Block`, chunk-relative and `Chunk` lines of its Coordinates module, the
+  coordinates of its Target module, and the `r.X.Z.mca` line of its Chunks module are all
+  spoofed and stay consistent with each other.
+- **Clipboard**: coordinates in text copied by the game (F3+C, F3+I and similar `tp`,
+  `setblock` and `summon` commands) are rewritten before they reach the clipboard, and
+  `.coords` copies and prints the fake position.
+- **Dimension Coords HUD element**.
+- **Xaero's Minimap**: the Coordinates, Overworld Coordinates and Chunk Coordinates lines.
+- **Xaero's World Map**: the cursor coordinates and the title of the right-click menu.
+- **This addon**: Chest Tracker (chat messages, `.chesttracker nearby` and container
+  names), Auto Stash Sorter and Stash Mover messages, the Death Log screen, and the
+  coordinates field in the Homes editor, which is hidden while the spoofer is on.
+
+Not covered: the Discord Notifier webhook (it still sends your real coordinates to your own
+webhook), the death log text file, game logs and crash reports, waypoint names and the
+terrain itself, the real position the server sees, and the slime chunk line of BetterF3's
+Location module, which is worked out from your real chunk. Xaero's own `Hide Waypoint
+Coordinates` option should be turned on while recording.
+
+The Xaero hooks are written for Xaero's Minimap 26.5.0 and Xaero's World Map 1.46.0, and
+the BetterF3 hooks for BetterF3 17.0.0, all on 1.21.11. They only apply in a normal
+launcher, not in a dev run. All of the spoofer's hooks live in the optional
+`sixtoolsaddon.spoof.mixins.json`, so if another version of one of those mods stops
+matching, that hook is skipped and the lines show real values instead of the game failing
+to start.
+
+- `coords`, turns coordinate spoofing on or off while the module is active.
+- `mode`, `Offset` adds a random shift to your real position so the fake coords still change
+  as you move, `Fixed` shows one random position that never changes, and `Random` works
+  like `Offset` but the shift is between 3,000,000 and 10,000,000 blocks, is never shown
+  anywhere (not in `.spoof` status, the settings or any getter) and is rolled again every
+  time you leave a server, as well as when the module is turned on (with
+  `reroll-on-enable`), when you switch to `Random` and on `.spoof reroll`. The map hooks
+  only make sense with `Offset` or `Random`, since `Fixed` would show the same value for
+  every map position.
+- `range`, how far from 0 the random X and Z values can be. Hidden in `Random` mode.
+- `random-sign`, `Random` mode only: each axis of the hidden shift is randomly added or
+  subtracted, so the fake coords can be negative (on by default). The Y shift stays a small
+  value either way.
+- `spoof-y`, also fakes the Y level (off by default).
+- `hide-hardware`, replaces the `CPU` and `Display` lines on the right side of the F3 screen
+  with `hidden` (on by default).
+- `reroll-on-enable`, picks a new random position every time the module is turned on.
+
+Control it from chat with the `.spoof` command (see Commands).
+</details>
+
 ---
 
 ## HUD elements
@@ -833,6 +886,36 @@ sound, and the new `.onlineplayers enemys` command, and persists to
 `.minecraft/config/sixtoolsaddon-enemies.txt`. The **social-sync** module can keep it matched with Mio and RusherHack. `.enemy add`/`.enemy remove` tab-complete
 (add suggests currently loaded player names, remove suggests names already on the list).
 
+## Chat
+
+A built-in chat between 6Tools users, separate from the server's chat. Open it from the
+**Chat** tab in Meteor's GUI (next to Enemies) or with `.chat` (alias `.6c`).
+
+- **General**: one public channel shared by everyone connected to the relay. Messages are
+  plain text.
+- **Friend DMs**: only with players on your Meteor friends list, and only from them: DMs
+  from non-friends are dropped. They are end-to-end encrypted (a fresh RSA-2048 key per
+  session wraps an AES-GCM key per message), so the relay only forwards ciphertext. DMs
+  need the other person to be online; nothing is stored.
+- **Relay**: a small Cloudflare Worker (`worker/`) that forwards messages. It connects
+  automatically when you join a world (`autoConnect`). Names are verified through Mojang's
+  session server, so nobody can pose as a premium account; cracked accounts can still
+  connect as unverified names.
+- **Filters**: you never see general messages from muted players or from anyone on your
+  Enemies list. `.chat mute` is local to your client, nothing is sent to the relay.
+- **Notifications**: while the chat screen is closed, new messages are echoed in the main
+  chat and unread counts show on the conversation tabs. `.chat echo` toggles the echo.
+- **Rate limits**: 5 message burst, then about 1 per second; the same message can't be
+  repeated within 5 seconds; max 256 characters.
+- **Self-hosting**: deploy `worker/` with Wrangler, set `ADMINS` in `worker/wrangler.toml`
+  to your own Minecraft UUID(s), then point clients at it with `.chat url wss://...`.
+  `ADMINS` only matters on the relay you host: the server checks the admin's Mojang-verified
+  UUID, so editing the client or the open source code can't grant admin on someone else's
+  relay.
+
+Settings live in `.minecraft/config/sixtoolsaddon/chat.json` (`relayUrl`, `autoConnect`,
+`echo`, `muted`).
+
 ## Commands
 
 Use whatever command prefix your Meteor build is set to, not the dot:
@@ -856,12 +939,31 @@ Use whatever command prefix your Meteor build is set to, not the dot:
 | `.onlineplayers enemys`        | List which of your enemies are currently online       |
 | `.coords`                      | Copy your current coordinates to the clipboard         |
 | `.coords raw`                  | Copy just the raw numbers, no formatting               |
+| `.spoof`                       | Show the spoofer status and the current fake position (the offset is hidden in random mode) |
+| `.spoof on` / `.spoof off`     | Turn the spoofer module on or off                      |
+| `.spoof reroll`                | Pick a new random fake position                        |
+| `.spoof mode offset`           | Fake coords move with you (real position + random shift) |
+| `.spoof mode fixed`            | Fake coords stay on one random position                |
+| `.spoof mode random`           | Hidden 3,000,000 to 10,000,000 block offset, rolled again every time you leave a server |
+| `.spoof range <blocks>`        | Set how far the random values can reach and reroll     |
+| `.spoof y on` / `.spoof y off` | Also fake (or stop faking) the Y level                 |
+| `.spoof set <x> <z>`           | Show exact fixed coords of your choice (Y stays 64)    |
+| `.spoof set <x> <y> <z>`       | Show exact fixed coords including Y                    |
 | `.chesttracker search hand`    | Search Chest Tracker for whatever's in your main hand |
 | `.chesttracker search <item>`  | Search Chest Tracker for a specific item               |
 | `.chesttracker clear all`      | Wipe all tracked container data                        |
 | `.chesttracker clear dimension`| Wipe tracked data for your current dimension only      |
 | `.chesttracker export`         | Export tracked container data                          |
 | `.chesttracker nearby <radius>`| List tracked containers within a radius                |
+| `.chat`                        | Open the chat window                                   |
+| `.chat general [message]`      | Open the General channel, or send a message to it      |
+| `.chat <friend> [message]`     | Open a DM with a friend, or send them an encrypted message |
+| `.chat connect` / `.chat disconnect` | Connect to or leave the relay                    |
+| `.chat who`                    | List everyone online on the relay                      |
+| `.chat echo`                   | Toggle echoing new messages in the main chat           |
+| `.chat mute <name>` / `.chat unmute <name>` | Hide (or show again) a player's messages, local only |
+| `.chat url <wss://...>`        | Use a different relay                                  |
+| `.chat ban <name>` / `.chat unban <name>` / `.chat bans` | Relay admins only, refused for everyone else |
 | `.setinput`                    | Start input area selection for Stash Mover              |
 | `.setoutput`                   | Start output area selection for Stash Mover              |
 | `.setclear`                    | Clear all Stash Mover area selections                    |

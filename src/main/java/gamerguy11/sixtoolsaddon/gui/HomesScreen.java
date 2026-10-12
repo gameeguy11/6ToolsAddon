@@ -1,5 +1,6 @@
 package gamerguy11.sixtoolsaddon.gui;
 
+import gamerguy11.sixtoolsaddon.modules.utility.Spoofer;
 import gamerguy11.sixtoolsaddon.homes.Home;
 import gamerguy11.sixtoolsaddon.homes.HomeStore;
 import java.util.Comparator;
@@ -85,7 +86,7 @@ public class HomesScreen extends WindowScreen {
          super(theme, existing != null ? "Edit \"" + existing.name + "\"" : "New Home");
          this.sg = this.settings.getDefaultGroup();
          this.name = this.sg.add(((StringSetting.Builder)((StringSetting.Builder)((StringSetting.Builder)(new StringSetting.Builder()).name("name")).description("Name of the home.")).defaultValue("")).build());
-         this.coords = this.sg.add(((BlockPosSetting.Builder)((BlockPosSetting.Builder)(new BlockPosSetting.Builder()).name("coordinates")).description("Center of the home.")).build());
+         this.coords = this.sg.add(new BlockPosSetting.Builder().name("coordinates").description("Center of the home.").visible(() -> !Spoofer.isMasking()).build());
          this.radius = this.sg.add(((IntSetting.Builder)((IntSetting.Builder)((IntSetting.Builder)(new IntSetting.Builder()).name("radius")).description("Circle radius in blocks (X/Z, all heights). Radius 50 = a circle 100 blocks across.")).defaultValue(50)).min(1).noSlider().build());
          this.dimension = this.sg.add(((EnumSetting.Builder)((EnumSetting.Builder)((EnumSetting.Builder)(new EnumSetting.Builder()).name("dimension")).description("Dimension of the home.")).defaultValue(Dimension.Overworld)).build());
          this.protect = this.sg.add(((BoolSetting.Builder)((BoolSetting.Builder)((BoolSetting.Builder)(new BoolSetting.Builder()).name("protect")).description("While you are inside this home, Auto TPY will not accept teleport requests.")).defaultValue(true)).build());

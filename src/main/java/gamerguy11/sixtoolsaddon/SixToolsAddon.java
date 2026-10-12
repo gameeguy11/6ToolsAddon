@@ -1,8 +1,6 @@
 package gamerguy11.sixtoolsaddon;
 
 import com.mojang.logging.LogUtils;
-import gamerguy11.sixtoolsaddon.anarchymod.Domains;
-import gamerguy11.sixtoolsaddon.anarchymod.JoinPayload;
 import gamerguy11.sixtoolsaddon.commands.ChestTrackerCommand;
 import gamerguy11.sixtoolsaddon.commands.CoordsCommand;
 import gamerguy11.sixtoolsaddon.commands.DubCounterCommand;
@@ -13,8 +11,12 @@ import gamerguy11.sixtoolsaddon.commands.SetClear;
 import gamerguy11.sixtoolsaddon.commands.SetDiscordCommand;
 import gamerguy11.sixtoolsaddon.commands.SetInput;
 import gamerguy11.sixtoolsaddon.commands.SetOutput;
+import gamerguy11.sixtoolsaddon.commands.SpoofCommand;
 import gamerguy11.sixtoolsaddon.commands.StashSorterCommand;
 import gamerguy11.sixtoolsaddon.commands.StashStatus;
+import gamerguy11.sixtoolsaddon.chat.ChatService;
+import gamerguy11.sixtoolsaddon.commands.ChatCommand;
+import gamerguy11.sixtoolsaddon.gui.ChatTab;
 import gamerguy11.sixtoolsaddon.gui.EnemiesTab;
 import gamerguy11.sixtoolsaddon.hud.ArmorHud;
 import gamerguy11.sixtoolsaddon.hud.DimensionCoords;
@@ -51,6 +53,7 @@ import gamerguy11.sixtoolsaddon.modules.utility.Homes;
 import gamerguy11.sixtoolsaddon.modules.utility.SocialSync;
 import gamerguy11.sixtoolsaddon.modules.utility.ShulkerView;
 import gamerguy11.sixtoolsaddon.modules.utility.SoundEditor;
+import gamerguy11.sixtoolsaddon.modules.utility.Spoofer;
 import gamerguy11.sixtoolsaddon.modules.utility.WhisperLogger;
 import gamerguy11.sixtoolsaddon.modules.visual.Parkinsons;
 import gamerguy11.sixtoolsaddon.modules.visual.SwingSpeed;
@@ -88,8 +91,6 @@ public class SixToolsAddon extends MeteorAddon {
    public void onInitialize() {
       LOG.info("Initializing SixToolsAddon");
       SoundEngine.INSTANCE.rescan();
-      JoinPayload.register();
-      Domains.initialize();
       Modules.get().add(new Efly());
       Modules.get().add(new ForeverForward());
       Modules.get().add(new Ez());
@@ -108,6 +109,7 @@ public class SixToolsAddon extends MeteorAddon {
       Modules.get().add(new SoundEditor());
       Modules.get().add(new DeathLogger());
       Modules.get().add(new Suicide());
+      Modules.get().add(new Spoofer());
       Modules.get().add(new CsgoSpin());
       ChestTrackerModule chestTracker = new ChestTrackerModule();
       Modules.get().add(chestTracker);
@@ -120,11 +122,14 @@ public class SixToolsAddon extends MeteorAddon {
       StashMoverSelectionHandler.init();
       Modules.get().add(new AutoStashSorter());
       AutoStashSorterSelectionHandler.init();
+      ChatService.INSTANCE.init();
+      Commands.add(new ChatCommand());
       Commands.add(new InventoryCommand());
       Commands.add(new DubCounterCommand());
       Commands.add(new SetDiscordCommand());
       Commands.add(new EnemyCommand());
       Commands.add(new CoordsCommand());
+      Commands.add(new SpoofCommand());
       Commands.add(new ChestTrackerCommand());
       Commands.add(new SetInput());
       Commands.add(new SetOutput());
@@ -134,6 +139,8 @@ public class SixToolsAddon extends MeteorAddon {
       Commands.add(new OnlinePlayersCommand());
       Tabs.add(new EnemiesTab());
       moveTabAfter(EnemiesTab.class, FriendsTab.class);
+      Tabs.add(new ChatTab());
+      moveTabAfter(ChatTab.class, EnemiesTab.class);
       Hud.get().register(PlayerTrackerHud.INFO);
       Hud.get().register(DubCounterHud.INFO);
       Hud.get().register(StatsHud.INFO);
