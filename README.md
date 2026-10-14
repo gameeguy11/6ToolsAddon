@@ -16,7 +16,6 @@ A [Meteor Client](https://github.com/MeteorDevelopment/meteor-client) addon for 
 
 <iframe src="https://discord.com/widget?id=1504623086769537207&theme=dark" width="350" height="500" allowtransparency="true" frameborder="0" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"></iframe>
 -->
-#### Showcase: https://medal.tv/games/minecraft/clips/nz5q0SlHc9e2K63a6?invite=cr-MSwxcHEsMzIxOTEyMjI1
 
 ## Requirements
 
