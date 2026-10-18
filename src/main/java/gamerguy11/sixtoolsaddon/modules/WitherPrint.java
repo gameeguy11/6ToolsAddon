@@ -310,8 +310,8 @@ public final class WitherPrint extends Module {
     );
 
     private final Setting<Boolean> manageElytraSpeed = sgElytra.add(new BoolSetting.Builder()
-        .name("manage-efly-speed")
-        .description("Takes over Efly's horizontal speed while this module is running, depending on whether it is actively building a wither. Efly's own speed and acceleration settings are not changed.")
+        .name("efly-integration")
+        .description("Integrates with Efly: takes over its horizontal speed while this module is running, depending on whether it is actively building a wither, and allows automatic restock. Turn off to use Wither Print on its own without touching Efly. Efly's own speed and acceleration settings are never changed.")
         .defaultValue(true)
         .build()
     );
@@ -433,7 +433,7 @@ public final class WitherPrint extends Module {
     private Efly managedEfly;
 
     public WitherPrint() {
-        super(SixToolsAddon.CATEGORY, "wither-print", "Continuously builds complete withers behind you while you fly with Efly and smart-restocks Soul/Skull materials from Ender Chest supply shulkers.");
+        super(SixToolsAddon.CATEGORY, "wither-print", "Continuously builds complete withers behind you while you fly (optionally integrated with Efly) and smart-restocks Soul/Skull materials from Ender Chest supply shulkers.");
     }
 
     @Override
@@ -1614,7 +1614,7 @@ public final class WitherPrint extends Module {
         }
 
         if (!manageElytraSpeed.get()) {
-            warning("Automatic restock requires manage-efly-speed so it can switch to travel speed, stop in the air, and resume at placing speed.");
+            warning("Automatic restock requires efly-integration so it can switch to travel speed, stop in the air, and resume at placing speed.");
             return false;
         }
 

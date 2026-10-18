@@ -16,6 +16,7 @@ import meteordevelopment.meteorclient.settings.Setting;
 import meteordevelopment.meteorclient.settings.SettingGroup;
 import meteordevelopment.meteorclient.systems.friends.Friends;
 import meteordevelopment.meteorclient.systems.modules.Module;
+import meteordevelopment.meteorclient.systems.modules.render.Freecam;
 import meteordevelopment.meteorclient.systems.modules.Modules;
 import meteordevelopment.meteorclient.systems.modules.player.ChestSwap;
 import meteordevelopment.meteorclient.utils.player.FindItemResult;
@@ -370,6 +371,16 @@ public class Efly extends Module {
    @EventHandler
    private void onPlayerMove(PlayerMoveEvent event) {
       if (this.externalControl) {
+         return;
+      }
+
+      if (this.isFreecamActive()) {
+         this.zeroAcceleration();
+         if (this.mc.player != null && this.mc.player.isGliding()) {
+            this.mc.player.setVelocity(0.0, 0.0, 0.0);
+            ((IVec3d)event.movement).meteor$set(0.0, 0.0, 0.0);
+         }
+
          return;
       }
 
@@ -1215,6 +1226,28 @@ public class Efly extends Module {
 
          this.avoidanceSteering = false;
       }
+   }
+
+   private boolean isFreecamActive() {
+      if (Modules.get().isActive(Freecam.class)) {
+         return true;
+      }
+
+      if (this.mc.player == null) {
+         return false;
+      }
+
+      if (this.mc.getCameraEntity() != null && this.mc.getCameraEntity() != this.mc.player) {
+         return true;
+      }
+
+      boolean keysDown = this.mc.options.forwardKey.isPressed() || this.mc.options.backKey.isPressed() || this.mc.options.leftKey.isPressed() || this.mc.options.rightKey.isPressed();
+      if (!keysDown || this.mc.player.input == null) {
+         return false;
+      }
+
+      net.minecraft.util.math.Vec2f movement = this.mc.player.input.getMovementInput();
+      return movement.x == 0.0F && movement.y == 0.0F && this.mc.currentScreen == null && !this.mc.player.input.playerInput.forward() && !this.mc.player.input.playerInput.backward() && !this.mc.player.input.playerInput.left() && !this.mc.player.input.playerInput.right();
    }
 
    private boolean isMovementKeyPhysicallyPressed() {

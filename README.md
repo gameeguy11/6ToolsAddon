@@ -217,15 +217,9 @@ limit and unloaded-chunk check so both modules fly the same way.
 <details>
 <summary> wither print</summary>
 
-Builds complete withers behind you while you fly with Efly, then smart-restocks Soul
+Builds complete withers behind you while you fly, then smart-restocks Soul
 Sand/Soul Soil and Wither Skeleton Skulls from an Ender Chest supply shulker. This is
-Bonggerz' Wither Printer, ported to this addon and wired to Efly.
-
-While it runs it takes over Efly's horizontal speed (`not-placing-speed` between builds,
-`placing-speed` while building, 0 while restocking or naming) without touching Efly's own
-settings, and hands control back when it stops. Setting groups: General, Placement,
-Inventory, Auto Restock, Efly, Wither Naming, Reliability. Every setting has an in-game
-description.
+Bonggerz' Wither Printer, ported to this addon and optionally wired to Efly.
 
 Every finished Wither is counted per account and saved to
 `config/sixtoolsaddon/print-stats.json`; view it with `.printstats`.
