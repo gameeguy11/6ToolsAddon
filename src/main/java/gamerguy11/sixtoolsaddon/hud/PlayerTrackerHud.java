@@ -5,6 +5,7 @@ import gamerguy11.sixtoolsaddon.utils.ThemeColorUtils;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import meteordevelopment.meteorclient.MeteorClient;
 import meteordevelopment.meteorclient.settings.BoolSetting;
@@ -23,7 +24,10 @@ import meteordevelopment.meteorclient.systems.hud.HudElementInfo;
 import meteordevelopment.meteorclient.systems.hud.HudRenderer;
 import meteordevelopment.meteorclient.utils.render.color.Color;
 import meteordevelopment.meteorclient.utils.render.color.SettingColor;
+import meteordevelopment.meteorclient.renderer.Renderer2D;
+import net.minecraft.util.Identifier;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
+import net.minecraft.client.network.PlayerListEntry;
 
 public class PlayerTrackerHud extends HudElement {
    public static final HudElementInfo INFO;
@@ -34,6 +38,10 @@ public class PlayerTrackerHud extends HudElement {
    private final SettingGroup sgBackground;
    private final Setting<Integer> limit;
    private final Setting<Boolean> showDistance;
+   private final Setting<Boolean> showHead;
+   private final Setting<Boolean> showPing;
+   private final Setting<Boolean> showHealth;
+   private final Setting<Boolean> dynamicColors;
    private final Setting<Boolean> shadow;
    private final Setting<Alignment> alignment;
    private final Setting<Integer> border;
@@ -64,6 +72,10 @@ public class PlayerTrackerHud extends HudElement {
       this.sgBackground = this.settings.createGroup("Background");
       this.limit = this.sgGeneral.add(((IntSetting.Builder)((IntSetting.Builder)((IntSetting.Builder)(new IntSetting.Builder()).name("limit")).description("Max number of players to list.")).defaultValue(20)).min(1).sliderRange(1, 50).build());
       this.showDistance = this.sgGeneral.add(((BoolSetting.Builder)((BoolSetting.Builder)((BoolSetting.Builder)(new BoolSetting.Builder()).name("show-distance")).description("Shows how far away each player is, in meters (blocks).")).defaultValue(true)).build());
+      this.showHead = this.sgGeneral.add(new BoolSetting.Builder().name("show-head").description("Shows each player's head.").defaultValue(true).build());
+      this.showPing = this.sgGeneral.add(new BoolSetting.Builder().name("show-ping").description("Shows each player's ping in ms.").defaultValue(true).build());
+      this.showHealth = this.sgGeneral.add(new BoolSetting.Builder().name("show-health").description("Shows each player's health, including absorption.").defaultValue(true).build());
+      this.dynamicColors = this.sgGeneral.add(new BoolSetting.Builder().name("dynamic-colors").description("Colors health and ping by value instead of using the distance color.").defaultValue(true).build());
       this.shadow = this.sgGeneral.add(((BoolSetting.Builder)((BoolSetting.Builder)((BoolSetting.Builder)(new BoolSetting.Builder()).name("shadow")).description("Renders a shadow behind the text.")).defaultValue(true)).build());
       this.alignment = this.sgGeneral.add(((EnumSetting.Builder)((EnumSetting.Builder)((EnumSetting.Builder)(new EnumSetting.Builder()).name("alignment")).description("Horizontal text alignment.")).defaultValue(Alignment.Left)).build());
       this.border = this.sgGeneral.add(((IntSetting.Builder)((IntSetting.Builder)((IntSetting.Builder)(new IntSetting.Builder()).name("border")).description("Padding around the element.")).defaultValue(2)).sliderRange(0, 10).build());
@@ -118,54 +130,122 @@ public class PlayerTrackerHud extends HudElement {
    }
 
    public void tick(HudRenderer renderer) {
-      double width = renderer.textWidth("Players:", (Boolean)this.shadow.get(), this.getScale());
-      double height = renderer.textHeight((Boolean)this.shadow.get(), this.getScale());
+      boolean sh = this.shadow.get();
+      double scale = this.getScale();
+      double width = renderer.textWidth("Players:", sh, scale);
+      double height = renderer.textHeight(sh, scale);
       if (MeteorClient.mc.world != null && MeteorClient.mc.getCameraEntity() != null) {
-         for(AbstractClientPlayerEntity player : this.getPlayers()) {
-            String text = player.getName().getString();
-            if ((Boolean)this.showDistance.get()) {
-               text = text + String.format(" (%sm)", Math.round(MeteorClient.mc.getCameraEntity().distanceTo(player)));
-            }
-
-            width = Math.max(width, renderer.textWidth(text, (Boolean)this.shadow.get(), this.getScale()));
-            height += renderer.textHeight((Boolean)this.shadow.get(), this.getScale()) + (double)2.0F;
+         for (AbstractClientPlayerEntity player : this.getPlayers()) {
+            width = Math.max(width, this.rowWidth(renderer, this.segments(player)));
+            height += renderer.textHeight(sh, scale) + 2.0;
          }
-
-         this.setSize(width, height);
-      } else {
-         this.setSize(width, height);
       }
+
+      this.setSize(width, height);
    }
 
    public void render(HudRenderer renderer) {
-      double y = (double)(this.y + (Integer)this.border.get());
-      if ((Boolean)this.background.get()) {
-         renderer.quad((double)this.x, (double)this.y, (double)this.getWidth(), (double)this.getHeight(), ThemeColorUtils.resolve((SettingColor)this.backgroundColor.get(), (Boolean)this.backgroundColorUseTheme.get()));
+      boolean sh = this.shadow.get();
+      double scale = this.getScale();
+      double y = this.y + this.border.get();
+      if (this.background.get()) {
+         renderer.quad(this.x, this.y, this.getWidth(), this.getHeight(), ThemeColorUtils.resolve(this.backgroundColor.get(), this.backgroundColorUseTheme.get()));
       }
 
-      renderer.text("Players:", (double)(this.x + (Integer)this.border.get()) + this.alignX(renderer.textWidth("Players:", (Boolean)this.shadow.get(), this.getScale()), (Alignment)this.alignment.get()), y, ThemeColorUtils.resolve((SettingColor)this.otherColor.get(), (Boolean)this.otherColorUseTheme.get()), (Boolean)this.shadow.get(), this.getScale());
-      if (MeteorClient.mc.world != null && MeteorClient.mc.getCameraEntity() != null) {
-         double spaceWidth = renderer.textWidth(" ", (Boolean)this.shadow.get(), this.getScale());
+      renderer.text("Players:", (this.x + this.border.get()) + this.alignX(renderer.textWidth("Players:", sh, scale), this.alignment.get()), y, ThemeColorUtils.resolve(this.otherColor.get(), this.otherColorUseTheme.get()), sh, scale);
+      if (MeteorClient.mc.world == null || MeteorClient.mc.getCameraEntity() == null) {
+         return;
+      }
 
-         for(AbstractClientPlayerEntity player : this.getPlayers()) {
-            String name = player.getName().getString();
-            Color color = this.colorFor(player);
-            double width = renderer.textWidth(name, (Boolean)this.shadow.get(), this.getScale());
-            String distanceText = null;
-            if ((Boolean)this.showDistance.get()) {
-               distanceText = String.format("(%sm)", Math.round(MeteorClient.mc.getCameraEntity().distanceTo(player)));
-               width += spaceWidth + renderer.textWidth(distanceText, (Boolean)this.shadow.get(), this.getScale());
+      double space = renderer.textWidth(" ", sh, scale);
+      double lineHeight = renderer.textHeight(sh, scale);
+      int headSize = (int) lineHeight;
+
+      for (AbstractClientPlayerEntity player : this.getPlayers()) {
+         List<Segment> segs = this.segments(player);
+         double x = this.x + this.border.get() + this.alignX(this.rowWidth(renderer, segs), this.alignment.get());
+         y += lineHeight + 2.0;
+         if (this.showHead.get()) {
+            PlayerListEntry entry = this.entry(player);
+            if (entry != null) {
+               int hx = (int) x;
+               int hy = (int) y;
+               Identifier skin = entry.getSkinTextures().body().texturePath();
+               renderer.post(() -> drawHead(skin, hx, hy, headSize));
             }
 
-            double x = (double)(this.x + (Integer)this.border.get()) + this.alignX(width, (Alignment)this.alignment.get());
-            y += renderer.textHeight((Boolean)this.shadow.get(), this.getScale()) + (double)2.0F;
-            x = renderer.text(name, x, y, color, (Boolean)this.shadow.get(), this.getScale());
-            if ((Boolean)this.showDistance.get()) {
-               renderer.text(distanceText, x + spaceWidth, y, ThemeColorUtils.resolve((SettingColor)this.distanceColor.get(), (Boolean)this.distanceColorUseTheme.get()), (Boolean)this.shadow.get(), this.getScale());
-            }
+            x += headSize + 2.0;
          }
 
+         for (int i = 0; i < segs.size(); i++) {
+            Segment seg = segs.get(i);
+            x = renderer.text(seg.text(), x, y, seg.color(), sh, scale);
+            if (i < segs.size() - 1) {
+               x += space;
+            }
+         }
       }
+   }
+
+   private record Segment(String text, Color color) {
+   }
+
+   private static final Color WHITE = new Color(255, 255, 255, 255);
+
+   private static void drawHead(Identifier skin, double x, double y, double size) {
+      var texture = MeteorClient.mc.getTextureManager().getTexture(skin);
+      Renderer2D.TEXTURE.begin();
+      Renderer2D.TEXTURE.texQuad(x, y, size, size, 0.0, 8.0 / 64.0, 8.0 / 64.0, 16.0 / 64.0, 16.0 / 64.0, WHITE);
+      Renderer2D.TEXTURE.texQuad(x, y, size, size, 0.0, 40.0 / 64.0, 8.0 / 64.0, 48.0 / 64.0, 16.0 / 64.0, WHITE);
+      Renderer2D.TEXTURE.render(texture.getGlTextureView(), texture.getSampler());
+   }
+
+   private PlayerListEntry entry(AbstractClientPlayerEntity player) {
+      return MeteorClient.mc.getNetworkHandler() == null ? null : MeteorClient.mc.getNetworkHandler().getPlayerListEntry(player.getUuid());
+   }
+
+   private double rowWidth(HudRenderer renderer, List<Segment> segs) {
+      boolean sh = this.shadow.get();
+      double scale = this.getScale();
+      double width = this.showHead.get() ? (int) renderer.textHeight(sh, scale) + 2.0 : 0.0;
+      double space = renderer.textWidth(" ", sh, scale);
+      for (int i = 0; i < segs.size(); i++) {
+         width += renderer.textWidth(segs.get(i).text(), sh, scale);
+         if (i < segs.size() - 1) {
+            width += space;
+         }
+      }
+
+      return width;
+   }
+
+   private List<Segment> segments(AbstractClientPlayerEntity player) {
+      List<Segment> list = new ArrayList<>();
+      Color base = ThemeColorUtils.resolve(this.distanceColor.get(), this.distanceColorUseTheme.get());
+      list.add(new Segment(player.getName().getString(), this.colorFor(player)));
+      if (this.showDistance.get()) {
+         list.add(new Segment(String.format(Locale.ROOT, "%.1fm", MeteorClient.mc.getCameraEntity().distanceTo(player)), base));
+      }
+
+      if (this.showPing.get()) {
+         PlayerListEntry entry = this.entry(player);
+         if (entry != null) {
+            int ping = entry.getLatency();
+            list.add(new Segment(ping + "ms", this.dynamicColors.get() ? this.gradient(1.0 - Math.min(ping, 300) / 300.0) : base));
+         }
+      }
+
+      if (this.showHealth.get()) {
+         float hp = player.getHealth() + player.getAbsorptionAmount();
+         list.add(new Segment(String.format(Locale.ROOT, "%.1f", hp), this.dynamicColors.get() ? this.gradient(Math.min(hp, 20.0f) / 20.0) : base));
+      }
+
+      return list;
+   }
+
+   private Color gradient(double ratio) {
+      double r = Math.max(0.0, Math.min(1.0, ratio));
+      return new Color(Math.min(255, (int) (510.0 * (1.0 - r))), Math.min(255, (int) (510.0 * r)), 40);
    }
 
    private Color colorFor(AbstractClientPlayerEntity player) {

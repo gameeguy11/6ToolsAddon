@@ -48,6 +48,7 @@ import net.minecraft.client.network.ClientPlayerInteractionManager;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.EquippableComponent;
 import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket.Mode;
 import net.minecraft.world.RaycastContext.FluidHandling;
 import net.minecraft.world.RaycastContext.ShapeType;
@@ -142,6 +143,8 @@ public class Efly extends Module {
    private int verticalStepTicks;
    private final StaticGroundListener staticGroundListener;
    private final StaticInstaDropListener staticInstadropListener;
+   private Double speedOverride;
+   private boolean externalControl;
 
    public Efly() {
       super(SixToolsAddon.CATEGORY, "efly", "Specifically designed to maximise elytrafly capabilities and speed on 6b6t");
@@ -334,6 +337,29 @@ public class Efly extends Module {
    }
 
    private void swapToChestSwap() {
+      PlayerEntity player = this.mc.player;
+      if (player == null) {
+         return;
+      }
+
+      FindItemResult target;
+      if (player.getEquippedStack(EquipmentSlot.CHEST).getItem() == Items.ELYTRA) {
+         target = InvUtils.find((stack) -> {
+            if (stack.isEmpty() || stack.getItem() == Items.ELYTRA) {
+               return false;
+            }
+            EquippableComponent equippable = (EquippableComponent)stack.get(DataComponentTypes.EQUIPPABLE);
+            return equippable != null && equippable.slot() == EquipmentSlot.CHEST;
+         });
+      } else {
+         target = InvUtils.find((stack) -> stack.getItem() == Items.ELYTRA && stack.getMaxDamage() - stack.getDamage() > 1);
+      }
+
+      if (target.found()) {
+         InvUtils.move().from(target.slot()).toArmor(2);
+         return;
+      }
+
       ChestSwap chestSwapModule = (ChestSwap)Modules.get().get(ChestSwap.class);
       if (chestSwapModule != null) {
          chestSwapModule.swap();
@@ -343,6 +369,10 @@ public class Efly extends Module {
 
    @EventHandler
    private void onPlayerMove(PlayerMoveEvent event) {
+      if (this.externalControl) {
+         return;
+      }
+
       PlayerEntity player = this.mc.player;
       ClientWorld world = this.mc.world;
       if (player != null && world != null) {
@@ -748,7 +778,33 @@ public class Efly extends Module {
    }
 
    private double getSpeed() {
-      return this.acceleration;
+      return this.speedOverride != null ? this.speedOverride : this.acceleration;
+   }
+
+   public void setSpeedOverride(double speed) {
+      this.speedOverride = Math.max(0.0, speed);
+   }
+
+   public void clearSpeedOverride() {
+      if (this.speedOverride != null) {
+         this.speedOverride = null;
+         this.resetHorizontalAcceleration();
+      }
+   }
+
+   public boolean hasSpeedOverride() {
+      return this.speedOverride != null;
+   }
+
+   public void setExternalControl(boolean external) {
+      this.externalControl = external;
+      if (!external) {
+         this.resetHorizontalAcceleration();
+      }
+   }
+
+   public boolean isExternallyControlled() {
+      return this.externalControl;
    }
 
    private void handleVerticalAcceleration() {

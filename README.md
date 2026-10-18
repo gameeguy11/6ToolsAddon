@@ -30,7 +30,7 @@ A [Meteor Client](https://github.com/MeteorDevelopment/meteor-client) addon for 
 ## Modules
 
 <details>
-<summary> stash-mover</summary>
+<summary> stash mover</summary>
 
 Automatically empties a whole "input" stash into an "output" stash: walks container to
 container in the input area, pulls items out (optionally shulkers only), and repeats the
@@ -54,7 +54,7 @@ round trip until the input area has nothing left in it or you turn the module of
   the three above (yes, actually killing yourself to respawn back near the input area).
   Pearl uses `go-back-player`/`go-back-command`; `/home`/`/tpa` use `home-name-input`/
   `tpa-target-input`.
-- **Reset Pearl**: fine control over the pearl-throwing itself when using Pearl Loading —
+- **Reset Pearl**: fine control over the pearl-throwing itself when using Pearl Loading,
   `output-throw-pitch`/`output-throw-yaw`, `input-pickup-pos`/`input-throw-pos`,
   `input-throw-pitch`/`input-throw-yaw`, `pearl-wait-time` (how long to wait after
   throwing), `position-tolerance` (how close you need to stand before throwing), and
@@ -74,7 +74,7 @@ both selections if you need to start over.
 </details>
 
 <details>
-<summary> chest-tracker</summary>
+<summary> chest tracker</summary>
 
 Remembers what's inside every chest, barrel, shulker box, ender chest, hopper, dispenser/
 dropper (and copper chest, on modded servers) you've ever opened, so you can search for an
@@ -96,7 +96,7 @@ every tracked container and its contents.
 - **Render**: `render-tracked` outlines every tracked container, `render-search-results`
   outlines only containers matching your current search, both within `render-distance`,
   drawn with `shape-mode` and the `tracked-color`/`search-color`/`search-line-color` colors.
-- **Filter**: which container types get tracked at all — `track-chests`, `track-barrels`,
+- **Filter**: which container types get tracked at all, `track-chests`, `track-barrels`,
   `track-shulkers`, `track-ender-chests`, `track-hoppers`, `track-dispensers`,
   `track-copper-chests`.
 - **Advanced**: `debug`, prints internal state transitions to chat.
@@ -115,7 +115,7 @@ Adds a live search field over your inventory and every container screen, highlig
 matching items as you type instead of hunting through slots by eye.
 
 - **General**: `search-query`, `case-sensitive`, `split-queries` (treat commas as separate
-  search terms instead of literal text), and where it searches — `search-item-name`,
+  search terms instead of literal text), and where it searches, `search-item-name`,
   `search-item-type`, `search-lore`. `highlight-color` for matches. `inventory-highlight`
   highlights matches in your own inventory too, not just open containers.
   `chest-tracker-integration` feeds the same search into Chest Tracker automatically.
@@ -129,10 +129,10 @@ matching items as you type instead of hunting through slots by eye.
 </details>
 
 <details>
-<summary> auto-stash-sorter</summary>
+<summary> auto stash sorter</summary>
 
 Scans nearby chests and barrels once, then sorts your inventory by dropping each item into
-whichever scanned container already holds the most of that item — a one-shot "put this
+whichever scanned container already holds the most of that item, a one-shot "put this
 away where it belongs" rather than Stash Mover's input→output loop.
 
 - `scan-radius`, how far to look for containers when the module starts.
@@ -149,7 +149,7 @@ away where it belongs" rather than Stash Mover's input→output loop.
 </details>
 
 <details>
-<summary> inventory-sorter</summary>
+<summary> inventory sorter</summary>
 
 Saves a named snapshot of your inventory layout and auto-sorts items back into that exact
 layout whenever it drifts, slot by slot rather than by container contents (see
@@ -160,7 +160,7 @@ through the `.invsorter` commands (see Commands).
   `tick-rate`, ticks between each slot move (higher is slower but less likely to trip
   anti-cheat). `auto-disable`, turn the module off by itself once sorting finishes instead
   of continuing to watch for drift.
-- **Auto-Loot**: `auto-loot` — `Off` does nothing extra; `Refill` tops up whatever you
+- **Auto-Loot**: `auto-loot`, `Off` does nothing extra; `Refill` tops up whatever you
   already carry whenever you open storage while the module is active; `Rekit` pulls items
   belonging to a chosen saved inventory out of any storage you open, then arranges your
   inventory into that layout once you close it. `rekit-inventory`, which saved inventory
@@ -197,7 +197,42 @@ panel, so if a specific value's behavior isn't obvious, check there first.
 </details>
 
 <details>
-<summary> forever-forward</summary>
+<summary> 6Tools Auto Wasp</summary>
+
+Follows a player on an elytra, built to behave like Efly instead of fighting it. While it
+is active Efly's own movement is paused (Efly's elytra swap and firework upkeep still run),
+and `follow-efly` makes it read Efly's horizontal/vertical speed, acceleration ramp, height
+limit and unloaded-chunk check so both modules fly the same way.
+
+- **Target**: `only-friends` and `target-name` (leave empty for the closest player).
+- **Speed**: with `follow-efly` off you get your own `horizontal-speed`, `vertical-speed`
+  and acceleration ramp. `speed-cap` is a hard limit on total blocks per tick.
+- **Flight**: `auto-take-off`, `manage-elytra` (equips an elytra and swaps it before it
+  breaks), `obstacle-climb` (goes over blocks in the way), plus height and chunk limits.
+- **General**: `predict-movement` aims ahead of the target, `avoid-landing` keeps you just
+  above the ground, `offset` shifts where you hover, `action-on-target-loss` picks what
+  happens when the target disappears.
+</details>
+
+<details>
+<summary> wither print</summary>
+
+Builds complete withers behind you while you fly with Efly, then smart-restocks Soul
+Sand/Soul Soil and Wither Skeleton Skulls from an Ender Chest supply shulker. This is
+Bonggerz' Wither Printer, ported to this addon and wired to Efly.
+
+While it runs it takes over Efly's horizontal speed (`not-placing-speed` between builds,
+`placing-speed` while building, 0 while restocking or naming) without touching Efly's own
+settings, and hands control back when it stops. Setting groups: General, Placement,
+Inventory, Auto Restock, Efly, Wither Naming, Reliability. Every setting has an in-game
+description.
+
+Every finished Wither is counted per account and saved to
+`config/sixtoolsaddon/print-stats.json`; view it with `.printstats`.
+</details>
+
+<details>
+<summary> forever forward</summary>
 
 Holds the forward-movement key down for you, so you don't have to keep a finger on `W`.
 One setting: `sprint`, also holds the sprint key down while active.
@@ -238,13 +273,13 @@ To use it: enable the module, open its settings, and add lines to `kill-messages
 </details>
 
 <details>
-<summary> csgo-spin</summary>
+<summary> csgo spin</summary>
 
 Rotates your view for you automatically, in either of two styles picked by `spin-mode`.
 
 - **CSGO mode** (default): spins yaw and/or pitch in a ping-pong sweep. `yaw`/`yaw-speed`
   sweep left-right between -180° and 180°; `pitch`/`rotation-speed` sweep up-down. `anti-
-  desync` pauses spinning while you're using things that need a steady look direction —
+  desync` pauses spinning while you're using things that need a steady look direction,
   `All` covers bows, ender pearls, XP bottles, elytra, EXPThrower and BedAura; `Except
   Elytra` covers everything except elytra; `None` never pauses.
 - **CS2 mode**: continuously spins yaw at a constant `rotation-speed` (0-50), pausing only
@@ -252,7 +287,7 @@ Rotates your view for you automatically, in either of two styles picked by `spin
 </details>
 
 <details>
-<summary> dub-counter</summary>
+<summary> dub counter</summary>
 
 Counts how many double chests are nearby (see the `.dub` command below), driving the
 Dub Counter HUD element. Also runnable as a standalone module if you just want the
@@ -273,7 +308,7 @@ Automatically duplicates all maps in your inventory using inventory crafting.
 </details>
 
 <details>
-<summary> Anti-Drop</summary>
+<summary> Anti Drop</summary>
 
 Stops you from dropping certain items.
 
@@ -303,7 +338,7 @@ Kills yourself. Recommended.
 </details>
 
 <details>
-<summary> respawn-point-blocker</summary>
+<summary> respawn point blocker</summary>
 
 Prevents setting respawn points by blocking bed and respawn anchor interactions.
 
@@ -333,7 +368,7 @@ from Powie69's 6Bees addon.
 </details>
 
 <details>
-<summary> auto-return-home</summary>
+<summary> auto return home</summary>
 
 Auto-runs `/home` again after a cooldown if you get teleported into one of your saved
 homes, so pearling/tpa'ing into a home resets your position cleanly instead of leaving you
@@ -349,7 +384,7 @@ wherever you landed.
 </details>
 
 <details>
-<summary> auto-tpy</summary>
+<summary> auto tpy</summary>
 
 Automatically runs `/tpy <player>` when a teleport request comes in, since 6b6t requires
 that manually.
@@ -370,7 +405,7 @@ While you are standing inside a protected home (see Homes), requests are never a
 </details>
 
 <details>
-<summary> chat-highlight</summary>
+<summary> chat highlight</summary>
 
 Colors player names in chat: yourself, anyone on your Meteor friends list, and anyone on
 a custom enemy list, each independently toggleable with its own color.
@@ -396,7 +431,7 @@ If a name matches more than one category, priority is self > friend > enemy.
 </details>
 
 <details>
-<summary> social-sync</summary>
+<summary> social sync</summary>
 
 Keeps your friends and enemies identical across **Meteor**, **Mio**, **RusherHack** and
 **Lambda**, so adding or removing someone in one client shows up in the others. Meteor's
@@ -479,7 +514,7 @@ Names are matched case-insensitively, and a name is only ever a friend or an ene
 </details>
 
 <details>
-<summary> death-logger</summary>
+<summary> death logger</summary>
 
 Logs the coordinates and dimension of every death to a local text file, and gives you a
 `View Death Log` button right in the module's settings panel to browse past entries
@@ -487,7 +522,7 @@ without leaving the game.
 </details>
 
 <details>
-<summary> discord-notifier</summary>
+<summary> discord notifier</summary>
 
 Forwards chat, and optionally death/kill info, to a Discord webhook, so you can keep an
 eye on things without the game open. Independent toggles, mix and match:
@@ -521,7 +556,7 @@ chat doesn't spam or rate-limit your webhook.
 </details>
 
 <details>
-<summary> whisper-logger</summary>
+<summary> whisper logger</summary>
 
 Keeps a running, Discord-styled HTML archive of your whisper conversations, one file per
 person you've messaged. Adapted from Plumbiller's addon, see Credits.
@@ -545,7 +580,7 @@ whisper wording differs from 6b6t's.
 </details>
 
 <details>
-<summary> shulker-view</summary>
+<summary> shulker view</summary>
 
 Shows shulker box contents in a live preview overlay while your inventory is open, no need
 to actually open each shulker box. Ported from cattyngmd/shulker-view, see Credits.
@@ -579,9 +614,9 @@ instead.
 </details>
 
 <details>
-<summary> sound-editor</summary>
+<summary> sound editor</summary>
 
-Plays **your own** sound files for addon events - nothing is bundled, so a sound type stays
+Plays **your own** sound files for addon events, nothing is bundled, so a sound type stays
 silent until you put a file in its folder. Folders are created automatically in
 `.minecraft/config/sixtoolsaddon/sounds/`:
 
@@ -633,11 +668,28 @@ Adapted from the Genyo addon's module of the same name (wuritz, Barnika18, Awake
 </details>
 
 <details>
-<summary> swing-speed</summary>
+<summary> swing speed</summary>
 
 Slows down the outward part of your arm swing animation. Purely visual, client-side only.
 One setting: `out-speed`, multiplier for how fast the outward swing plays (1 = vanilla
 speed, lower = slower; the return to rest always plays at vanilla speed).
+</details>
+
+<details>
+<summary> better esp / better chams / better shaders / better tracers / better trajectories</summary>
+
+Visual modules for seeing entities and projectiles.
+
+- `better-esp`, box ESP around the entities you select.
+- `better-chams`, see-through wireframe over entities. Groups: Entities (`players`, `hostiles`,
+  `passives`, `self` to also render yourself, `pulse`, `mode`, fill/outline colors,
+  `damage-color`), Friends, Crystals.
+- `better-shaders`, fill and glowing outline shader on selected entities. `animated-colors`
+  adds a scrolling enchantment-glint effect, with `animated-color` to pick its color and
+  `animation-speed`.
+- `better-tracers`, lines to other players. `target` picks Feet, Torso or Head; `color-mode`
+  is Distance or Custom, with a separate friend color.
+- `better-trajectories`, predicted path of throwables, bows and crossbows.
 </details>
 
 <details>
@@ -708,12 +760,12 @@ Control it from chat with the `.spoof` command (see Commands).
 <summary> Player Tracker</summary>
 
 Lists every player currently loaded (within render/simulation distance), color-coded as
-friend, enemy, or everyone else, with distance in meters. Fully draggable and configurable
+friend, enemy, or everyone else, with distance in meters (e.g. `5.8m`), ping, and each player's head. Fully draggable and configurable
 like a built-in HUD element.
 
 Drag it onto your screen from Meteor's HUD editor to use it.
 
-- **General**: `limit` (max players shown), `show-distance`, `shadow`, `alignment`,
+- **General**: `limit` (max players shown), `show-distance`, `show-ping`, `show-head`, `shadow`, `alignment`,
   `border`.
 - **Colors**: separate colors for `friend-color`, `enemy-color`, `other-color`, and
   `distance-color`; `enemy-names` is a manually maintained list (Meteor has no built-in
@@ -926,6 +978,10 @@ Use whatever command prefix your Meteor build is set to, not the dot:
 | `.invsorter delete <n>`       | Remove a saved inventory                              |
 | `.invsorter clear`            | Remove every saved inventory                          |
 | `.invsorter list`             | List saved inventory names                            |
+| `.printstats`                 | Show how many withers you have printed with Wither Print (total and this session) |
+| `.printstats <player>`        | Show the same for another account used on this client |
+| `.printstats all`             | List totals for every account                          |
+| `.printstats reset`           | Reset your own count                                   |
 | `.dub`                        | Count double chests across every loaded chunk         |
 | `.dub rendered`                | Count double chests within an 8-chunk radius          |
 | `.dub rendered <radius>`       | Count double chests within a custom chunk radius      |
@@ -1026,9 +1082,11 @@ versions if any of them move.
   this project's supported Minecraft version, with the rest of the logic unchanged. Full
   credit for the original module and its Discord-style HTML log design goes to Plumbiller.
 - **Chest related modules** are adapted from [BepHaxAddon](https://github.com/dekrom/BepHaxAddon).
-- **Meteor Fix** — one of the Meteor bug fixes used Fractal420's
+- **Meteor Fix**, one of the Meteor bug fixes used Fractal420's
   [Meteor-GUI-Position-Fix](https://github.com/Fractal420/Meteor-GUI-Position-Fix).
 - **Lucky1821**
+- **Wither Print** is based on [ComicSquid74273](https://github.com/ComicSquid74273)'s
+  Wither printer: <https://github.com/ComicSquid74273/Wither-printer>.
 
 ## License
 
