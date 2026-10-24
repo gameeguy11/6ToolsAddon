@@ -23,11 +23,26 @@ A [Meteor Client](https://github.com/MeteorDevelopment/meteor-client) addon for 
 |---------------|----------------------------------------------------------------------------------------------------------------------------------------------|
 | Fabric Loader | 0.18.3+                                                                                                                                      |
 | Meteor Client | current 1.21.11 snapshot, check [maven.meteordev.org/snapshots](https://maven.meteordev.org/snapshots/meteordevelopment/meteor-client/)      |
-| Baritone      | a build matching your [Meteor Client](https://meteorclient.com/archive) version when using [Baritone](https://github.com/cabaletta/baritone) |
+| Baritone      | optional, a build matching your [Meteor Client](https://meteorclient.com/archive) version when using [Baritone](https://github.com/cabaletta/baritone) |
+| Baritone (optional upgrade) | the updated fork [dekrom/baritone v1.3.0-1.21.11](https://github.com/dekrom/baritone/releases/tag/v1.3.0-1.21.11), supported alongside the older build |
 | JDK           | 21                                                                                                                                           |
 ---
 
 ## Modules
+
+<details>
+<summary> notebot stealer</summary>
+
+Records noteblock songs played near you and saves each one as an `.nbs` file (NBS v5,
+20 ticks per second) in `.minecraft/meteor-client/notebot`, ready to play with Meteor's
+Notebot. A new file is written when the song goes silent for 3 seconds, when a noteblock
+is retuned, when you leave the world, or when you turn the module off. Recordings shorter
+than 5 seconds are discarded as tuning noise.
+
+Also adds `tune-hits-per-tick` to Meteor's Notebot, and makes it play whole chords and
+respect `polyphonic`. It pauses with an error if your held item would break the noteblocks.
+
+</details>
 
 <details>
 <summary> stash mover</summary>
@@ -200,18 +215,91 @@ panel, so if a specific value's behavior isn't obvious, check there first.
 <summary> 6Tools Auto Wasp</summary>
 
 Follows a player on an elytra, built to behave like Efly instead of fighting it. While it
-is active Efly's own movement is paused (Efly's elytra swap and firework upkeep still run),
-and `follow-efly` makes it read Efly's horizontal/vertical speed, acceleration ramp, height
-limit and unloaded-chunk check so both modules fly the same way.
+is active Efly's own movement is paused (Efly's elytra swap and firework upkeep still run).
+Pathfinding goes around terrain, and elytra glide is tracked against the server so setbacks
+don't throw you off course.
 
-- **Target**: `only-friends` and `target-name` (leave empty for the closest player).
-- **Speed**: with `follow-efly` off you get your own `horizontal-speed`, `vertical-speed`
-  and acceleration ramp. `speed-cap` is a hard limit on total blocks per tick.
-- **Flight**: `auto-take-off`, `manage-elytra` (equips an elytra and swaps it before it
-  breaks), `obstacle-climb` (goes over blocks in the way), plus height and chunk limits.
-- **General**: `predict-movement` aims ahead of the target, `avoid-landing` keeps you just
-  above the ground, `offset` shifts where you hover, `action-on-target-loss` picks what
-  happens when the target disappears.
+- **Target**: `only-friends`, `friend-filter` (`only-friends` true follows friends, false
+  follows non-friends) and `target-name` (leave empty for the closest player).
+  `keep-searching` stays enabled and waits for a target instead of turning off.
+  `action-on-target-loss` picks what happens when the target disappears.
+- **Speed**: `follow-efly` reads Efly's speed, height limit and unloaded-chunk check.
+  Otherwise `horizontal-max-bps`, `vertical-max-bps` and `3d-max-bps` set your own limits,
+  and `ramp-step` controls how fast the boost accelerates.
+- **Flight**: `auto-take-off`, `avoid-landing`, `predict-movement` (leads the target by its
+  recent movement over your ping), `offset` (how far from the target to hover),
+  `limit-max-height` / `max-height` and `no-unloaded-chunks`.
+- **Chest swap**: `auto-chest-swap` wears a chestplate near the target on stable ground and
+  an elytra for pursuit, replacing an elytra with 1 durability left.
+  `chest-swap-horizontal-range`, `chest-swap-vertical-range`, `chest-swap-ground-distance`
+  and `chest-swap-hysteresis` tune when it swaps.
+- **Setbacks**: `setback-rewind-ticks` and `setback-hold-ticks` keep speed after a server
+  setback instead of restarting the ramp. `pinned-glide-ticks` glides with vanilla physics
+  after two setbacks on the same spot (0 disables).
+- **Server glide**: `server-glide-guard` keeps walls out of reach of the server's glide,
+  and `steer-server-glide` reports a level heading away from a wall it could reach.
+</details>
+
+<details>
+<summary> auto fish</summary>
+
+Casts and reels in automatically. A bite is detected from the bobber's fish-caught flag
+(`detect-flag`), the splash sound (`detect-sound`) or a sudden dip (`detect-dip`, with
+`dip-threshold`). `retry-interval` and `max-retries` control reeling in a stuck bobber, and
+`recast-timeout` recasts when nothing bites (0 disables). `save-fish` writes big catches
+(at least `min-fish-size` cm) to an HTML file, opened with the My fish button.
+
+</details>
+
+<details>
+<summary> scaffold</summary>
+
+Places blocks under you. `block-list-mode` with `whitelist` / `blacklist` picks the blocks,
+`extend` places ahead of you, `keep-y` with `height` locks the Y level, and
+`packet-place-once` (experimental) sends one placement packet per block. `coating` also
+covers exposed terrain around you within `coating-radius`, limited by
+`coating-blocks-per-tick` and `coating-reach`.
+
+</details>
+
+<details>
+<summary> speedmine</summary>
+
+Faster block breaking with `auto-mine` for nearby enemies: `anti-phase` mines the blocks an
+enemy stands in, `anti-surround` the blocks boxing them in, `feet-first` goes lowest first,
+`enemy-range` sets how far to look, `auto-mine-bind` makes auto-mine hold-to-use,
+`auto-mine-only` ignores blocks you click yourself, `never-mine-own` skips blocks touching
+you, `auto-double-mine` breaks two targets at once and `mine-bedrock` includes bedrock.
+
+</details>
+
+<details>
+<summary> map art upload</summary>
+
+Uploads maparts to [6b-maparts.com](https://6b-maparts.com) straight from the game. The maps
+are read out of the item frames and uploaded as a draft you publish on the site. Works on
+6b6t only, with wall and floor frames (not ceiling).
+
+- `/maplink <code>`, links the game to your site account (one time). Get the code from
+  **Link Minecraft** on the site's login page.
+- `/mapupload [title]`, uploads the mapart you're looking at. The title is guessed from the
+  map names if left off.
+- `/mapselect`, pick two opposite corners to upload part of a wall, then run `/mapupload`.
+- `/mapuploadall`, splits a wall holding several maparts and uploads each one separately.
+
+New trades on the site ping you in chat. Based on the Maparts Link mod by BbiBelle,
+Gamerguy11 and ComicSquid74273.
+
+</details>
+
+<details>
+<summary> death effects / hand progress</summary>
+
+- `death-effects`, renders `effect` on players when they die; `self` also plays it on your
+  own death.
+- `hand-progress`, overrides the equip progress of what you hold:
+  `modify-mainhand` / `mainhand-progress` and `modify-offhand` / `offhand-progress`.
+
 </details>
 
 <details>

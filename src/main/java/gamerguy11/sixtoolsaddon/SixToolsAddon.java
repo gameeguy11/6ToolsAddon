@@ -42,6 +42,7 @@ import gamerguy11.sixtoolsaddon.modules.RespawnPointBlocker;
 import gamerguy11.sixtoolsaddon.modules.StashMover;
 import gamerguy11.sixtoolsaddon.modules.StashMoverSelectionHandler;
 import gamerguy11.sixtoolsaddon.modules.Stripper;
+import gamerguy11.sixtoolsaddon.modules.SixToolsAutoFish;
 import gamerguy11.sixtoolsaddon.modules.SixToolsAutoWasp;
 import gamerguy11.sixtoolsaddon.modules.Suicide;
 import gamerguy11.sixtoolsaddon.modules.WitherPrint;
@@ -100,9 +101,18 @@ public class SixToolsAddon extends MeteorAddon {
 
    public void onInitialize() {
       LOG.info("Initializing SixToolsAddon");
+      gamerguy11.sixtoolsaddon.baritone.BaritoneCheck.init();
+      String baritoneWarning = gamerguy11.sixtoolsaddon.baritone.BaritoneCheck.warningMessage();
+      if (baritoneWarning != null) {
+         LOG.warn(baritoneWarning);
+      }
       SoundEngine.INSTANCE.rescan();
       Modules.get().add(new Efly());
       Modules.get().add(new SixToolsAutoWasp());
+      Modules.get().add(new SixToolsAutoFish());
+      gamerguy11.sixtoolsaddon.utils.PacketPlaceTracker.init();
+      Modules.get().add(new gamerguy11.sixtoolsaddon.modules.SixToolsScaffold());
+      Modules.get().add(new gamerguy11.sixtoolsaddon.modules.SixToolsSpeedmine());
       Modules.get().add(new WitherPrint());
       Modules.get().add(new ForeverForward());
       Modules.get().add(new Ez());

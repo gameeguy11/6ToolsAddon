@@ -7,6 +7,7 @@
   "authors": ["Gamerguy11"],
   "icon": "assets/sixtoolsaddon/icon.png",
   "contributors": [
+    "ComicSquid74273 and BbiBelle (map art upload is based on the Maparts Link mod)",
     "Powie69 (Homes / base system is adapted from their 6Bees addon: https://github.com/Powie69/6Bees)",
     "Volizray (Efly is based on their VolytraFly-Addon: https://github.com/Volizray/VolytraFly-Addon)",
     "cattyngmd (Shulker View is adapted from their shulker-view: https://github.com/cattyngmd/shulker-view)",
@@ -19,7 +20,8 @@
   },
   "environment": "client",
   "entrypoints": {
-    "meteor": ["gamerguy11.sixtoolsaddon.SixToolsAddon"]
+    "meteor": ["gamerguy11.sixtoolsaddon.SixToolsAddon"],
+    "client": ["com.maparts.link.MapartsLinkMod"]
   },
   "mixins": [
     "sixtoolsaddon.mixins.json",
@@ -32,7 +34,10 @@
     "java": ">=${jdk_version}",
     "minecraft": "${minecraft_version}",
     "fabric-api": "*",
-    "baritone": "*",
     "meteor-client": "*"
+  },
+  "suggests": {
+    "baritone": "*",
+    "baritone-meteor": "*"
   }
 }

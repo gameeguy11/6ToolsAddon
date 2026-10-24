@@ -98,6 +98,8 @@ public class Efly extends Module {
    public final Setting<Double> maxHeight;
    public final Setting<Boolean> autoTakeOff;
    public final Setting<Boolean> stopInWater;
+   public final Setting<Double> waterSpeed;
+   private boolean glideLatch;
    public final Setting<Boolean> dontGoIntoUnloadedChunks;
    public final Setting<Boolean> noCrash;
    public final Setting<Integer> crashLookAhead;
@@ -252,6 +254,7 @@ public class Efly extends Module {
       this.maxHeight = var10001.add(((DoubleSetting.Builder)var31.visible(var10003::get)).build());
       this.autoTakeOff = this.sgGeneral.add(((BoolSetting.Builder)((BoolSetting.Builder)((BoolSetting.Builder)(new BoolSetting.Builder()).name("auto-take-off")).description("Takes off automatically without needing to double jump")).defaultValue(false)).build());
       this.stopInWater = this.sgGeneral.add(((BoolSetting.Builder)((BoolSetting.Builder)((BoolSetting.Builder)(new BoolSetting.Builder()).name("stop-in-water")).description("Stops flying when you touch water")).defaultValue(false)).build());
+      this.waterSpeed = this.sgGeneral.add(new DoubleSetting.Builder().name("water-speed").description("Maximum speed per tick while flying in water. Lower it if the server rubberbands you.").defaultValue(0.2).min(0.01).sliderMax(2.0).decimalPlaces(2).visible(() -> !this.stopInWater.get()).build());
       this.dontGoIntoUnloadedChunks = this.sgGeneral.add(((BoolSetting.Builder)((BoolSetting.Builder)((BoolSetting.Builder)(new BoolSetting.Builder()).name("no-unloaded-chunks")).description("Stops you from flying into unloaded chunks")).defaultValue(false)).build());
       this.noCrash = this.sgGeneral.add(((BoolSetting.Builder)((BoolSetting.Builder)((BoolSetting.Builder)(new BoolSetting.Builder()).name("no-crash")).description("Stops you from flying into walls")).defaultValue(false)).build());
       var10001 = this.sgGeneral;
@@ -390,7 +393,7 @@ public class Efly extends Module {
          if (player.getEquippedStack(EquipmentSlot.CHEST).contains(DataComponentTypes.GLIDER)) {
             this.autoTakeoff();
             this.updatePlayerAvoidance();
-            if (player.isGliding()) {
+            if (this.isFlying(player)) {
                this.velX = (double)0.0F;
                this.velY = event.movement.y;
                this.velZ = (double)0.0F;
@@ -414,6 +417,17 @@ public class Efly extends Module {
                this.handleLandGently();
                this.handleBuildingMode();
                this.handleMaxHeight();
+               if (!player.isGliding()) {
+                  double cap = this.waterSpeed.get();
+                  double length = Math.sqrt(this.velX * this.velX + this.velY * this.velY + this.velZ * this.velZ);
+                  if (length > cap) {
+                     double scale = cap / length;
+                     this.velX *= scale;
+                     this.velY *= scale;
+                     this.velZ *= scale;
+                  }
+               }
+
                int chunkX = (int)((player.getX() + this.velX) / (double)16.0F);
                int chunkZ = (int)((player.getZ() + this.velZ) / (double)16.0F);
                if ((Boolean)this.dontGoIntoUnloadedChunks.get()) {
@@ -436,7 +450,7 @@ public class Efly extends Module {
                }
             }
 
-            if ((Boolean)this.noCrash.get() && player.isGliding()) {
+            if ((Boolean)this.noCrash.get() && this.isFlying(player)) {
                Vec3d lookAheadPos = player.getEntityPos().add(player.getVelocity().normalize().multiply((double)(Integer)this.crashLookAhead.get()));
                RaycastContext raycastContext = new RaycastContext(player.getEntityPos(), new Vec3d(lookAheadPos.getX(), player.getY(), lookAheadPos.getZ()), ShapeType.COLLIDER, FluidHandling.NONE, player);
                BlockHitResult hitResult = world.raycast(raycastContext);
@@ -451,6 +465,10 @@ public class Efly extends Module {
 
    @EventHandler
    private void onTick(TickEvent.Post event) {
+      if (this.externalControl) {
+         return;
+      }
+
       if ((Boolean)this.autoReplenish.get()) {
          FindItemResult fireworks = InvUtils.find(new Item[]{Items.FIREWORK_ROCKET});
          if (fireworks.found() && !fireworks.isHotbar()) {
@@ -521,7 +539,7 @@ public class Efly extends Module {
 
    private void handleAutopilot() {
       PlayerEntity player = this.mc.player;
-      if (player != null && player.isGliding()) {
+      if (player != null && this.isFlying(player)) {
          if ((Boolean)this.autoPilot.get() && !this.avoidanceSteering && player.getY() > (Double)this.autoPilotMinimumHeight.get()) {
             this.mc.options.forwardKey.setPressed(true);
             this.lastForwardPressed = true;
@@ -860,7 +878,7 @@ public class Efly extends Module {
             this.releaseVerticalStep();
          } else {
             PlayerEntity player = this.mc.player;
-            if (player != null && player.isGliding()) {
+            if (player != null && this.isFlying(player)) {
                if (this.verticalStepActive) {
                   this.avoidanceSteering = true;
                   this.stepVerticalStep();
@@ -1228,6 +1246,25 @@ public class Efly extends Module {
       }
    }
 
+   private boolean isFlying(PlayerEntity player) {
+      if (player.isGliding()) {
+         this.glideLatch = true;
+         return true;
+      }
+
+      if (!this.glideLatch) {
+         return false;
+      }
+
+      boolean hasGlider = player.getEquippedStack(EquipmentSlot.CHEST).contains(DataComponentTypes.GLIDER);
+      if (!this.stopInWater.get() && hasGlider && player.isTouchingWater() && !player.isOnGround()) {
+         return true;
+      }
+
+      this.glideLatch = false;
+      return false;
+   }
+
    private boolean isFreecamActive() {
       if (Modules.get().isActive(Freecam.class)) {
          return true;
@@ -1241,13 +1278,13 @@ public class Efly extends Module {
          return true;
       }
 
-      boolean keysDown = this.mc.options.forwardKey.isPressed() || this.mc.options.backKey.isPressed() || this.mc.options.leftKey.isPressed() || this.mc.options.rightKey.isPressed();
+      boolean keysDown = this.mc.options.forwardKey.isPressed() || this.mc.options.backKey.isPressed() || this.mc.options.leftKey.isPressed() || this.mc.options.rightKey.isPressed() || this.mc.options.jumpKey.isPressed() || this.mc.options.sneakKey.isPressed();
       if (!keysDown || this.mc.player.input == null) {
          return false;
       }
 
       net.minecraft.util.math.Vec2f movement = this.mc.player.input.getMovementInput();
-      return movement.x == 0.0F && movement.y == 0.0F && this.mc.currentScreen == null && !this.mc.player.input.playerInput.forward() && !this.mc.player.input.playerInput.backward() && !this.mc.player.input.playerInput.left() && !this.mc.player.input.playerInput.right();
+      return movement.x == 0.0F && movement.y == 0.0F && this.mc.currentScreen == null && !this.mc.player.input.playerInput.forward() && !this.mc.player.input.playerInput.backward() && !this.mc.player.input.playerInput.left() && !this.mc.player.input.playerInput.right() && !this.mc.player.input.playerInput.jump() && !this.mc.player.input.playerInput.sneak();
    }
 
    private boolean isMovementKeyPhysicallyPressed() {

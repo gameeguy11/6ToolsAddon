@@ -63,7 +63,12 @@ dependencies {
 
     modImplementation(libs.meteor.client)
 
-    modImplementation(files("libs/baritone-fabric-1.17.0.jar"))
+    val preferredBaritone = file("libs/baritone-api-fabric-1.3.0-1.21.11.jar")
+    val baritoneJar = if (preferredBaritone.exists()) preferredBaritone else file("libs").listFiles { f -> f.isFile && f.name.startsWith("baritone") && f.name.endsWith(".jar") }?.sortedByDescending { it.name }?.firstOrNull()
+    if (baritoneJar != null) {
+        modCompileOnly(files(baritoneJar))
+        modLocalRuntime(files(baritoneJar))
+    }
 }
 
 java {

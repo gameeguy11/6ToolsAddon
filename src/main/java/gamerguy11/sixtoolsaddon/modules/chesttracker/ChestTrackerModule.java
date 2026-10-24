@@ -1,8 +1,7 @@
 package gamerguy11.sixtoolsaddon.modules.chesttracker;
 
+import gamerguy11.sixtoolsaddon.baritone.BaritoneBridge;
 import gamerguy11.sixtoolsaddon.modules.utility.Spoofer;
-import baritone.api.BaritoneAPI;
-import baritone.api.pathing.goals.GoalGetToBlock;
 import gamerguy11.sixtoolsaddon.SixToolsAddon;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -507,14 +506,12 @@ public class ChestTrackerModule extends Module {
          this.cancelBaritoneGoal();
       } else {
          if (this.baritoneGoalPos != null && this.baritoneGoalPos.equals(nearest)) {
-            if (!BaritoneAPI.getProvider().getPrimaryBaritone().getPathingBehavior().isPathing()) {
-               GoalGetToBlock goal = new GoalGetToBlock(nearest);
-               BaritoneAPI.getProvider().getPrimaryBaritone().getCustomGoalProcess().setGoalAndPath(goal);
+            if (!BaritoneBridge.isPathing()) {
+               BaritoneBridge.getToBlock(nearest);
             }
          } else {
             this.baritoneGoalPos = nearest;
-            GoalGetToBlock goal = new GoalGetToBlock(nearest);
-            BaritoneAPI.getProvider().getPrimaryBaritone().getCustomGoalProcess().setGoalAndPath(goal);
+            BaritoneBridge.getToBlock(nearest);
             if ((Boolean)this.debugMode.get()) {
                this.info("Baritone walking to untracked container at " + Spoofer.spoof(nearest).toShortString(), new Object[0]);
             }
@@ -525,8 +522,8 @@ public class ChestTrackerModule extends Module {
 
    private void cancelBaritoneGoal() {
       if (this.baritoneGoalPos != null) {
-         if (BaritoneAPI.getProvider().getPrimaryBaritone().getPathingBehavior().isPathing()) {
-            BaritoneAPI.getProvider().getPrimaryBaritone().getPathingBehavior().cancelEverything();
+         if (BaritoneBridge.isPathing()) {
+            BaritoneBridge.cancel();
          }
 
          this.baritoneGoalPos = null;

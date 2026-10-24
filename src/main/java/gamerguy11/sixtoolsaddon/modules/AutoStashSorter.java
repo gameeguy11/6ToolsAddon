@@ -1,9 +1,7 @@
 package gamerguy11.sixtoolsaddon.modules;
 
+import gamerguy11.sixtoolsaddon.baritone.BaritoneBridge;
 import gamerguy11.sixtoolsaddon.modules.utility.Spoofer;
-import baritone.api.BaritoneAPI;
-import baritone.api.Settings;
-import baritone.api.pathing.goals.GoalGetToBlock;
 import gamerguy11.sixtoolsaddon.SixToolsAddon;
 import gamerguy11.sixtoolsaddon.modules.chesttracker.ChestTrackerModule;
 import gamerguy11.sixtoolsaddon.modules.chesttracker.TrackedContainer;
@@ -384,8 +382,8 @@ public class AutoStashSorter extends Module {
    private void handleGotoDeposit() {
       BlockPos target = this.currentTarget.pos;
       double dist = Math.sqrt(this.mc.player.getBlockPos().getSquaredDistance(target));
-      if (!BaritoneAPI.getProvider().getPrimaryBaritone().getPathingBehavior().isPathing() && this.gotoTimer == 0) {
-         BaritoneAPI.getProvider().getPrimaryBaritone().getCustomGoalProcess().setGoalAndPath(new GoalGetToBlock(target));
+      if (!BaritoneBridge.isPathing() && this.gotoTimer == 0) {
+         BaritoneBridge.getToBlock(target);
       }
 
       ++this.gotoTimer;
@@ -415,8 +413,8 @@ public class AutoStashSorter extends Module {
    private void handleGotoSource() {
       BlockPos target = this.currentSource.pos;
       double dist = Math.sqrt(this.mc.player.getBlockPos().getSquaredDistance(target));
-      if (!BaritoneAPI.getProvider().getPrimaryBaritone().getPathingBehavior().isPathing() && this.gotoTimer == 0) {
-         BaritoneAPI.getProvider().getPrimaryBaritone().getCustomGoalProcess().setGoalAndPath(new GoalGetToBlock(target));
+      if (!BaritoneBridge.isPathing() && this.gotoTimer == 0) {
+         BaritoneBridge.getToBlock(target);
       }
 
       ++this.gotoTimer;
@@ -966,27 +964,30 @@ public class AutoStashSorter extends Module {
    }
 
    private void cancelPathing() {
-      if (BaritoneAPI.getProvider().getPrimaryBaritone().getPathingBehavior().isPathing()) {
-         BaritoneAPI.getProvider().getPrimaryBaritone().getPathingBehavior().cancelEverything();
+      if (BaritoneBridge.isPathing()) {
+         BaritoneBridge.cancel();
       }
 
    }
 
    private void setSafePathing(boolean enabled) {
       try {
-         Settings settings = BaritoneAPI.getSettings();
          if (!enabled) {
             this.restorePathing();
             return;
          }
 
          if (this.savedAllowBreak == null) {
-            this.savedAllowBreak = (Boolean)settings.allowBreak.value;
-            this.savedAllowPlace = (Boolean)settings.allowPlace.value;
+            boolean[] current = BaritoneBridge.getAllowBreakPlace();
+            if (current == null) {
+               return;
+            }
+
+            this.savedAllowBreak = current[0];
+            this.savedAllowPlace = current[1];
          }
 
-         settings.allowBreak.value = false;
-         settings.allowPlace.value = false;
+         BaritoneBridge.setAllowBreakPlace(false, false);
       } catch (RuntimeException var3) {
       }
 
@@ -995,9 +996,7 @@ public class AutoStashSorter extends Module {
    private void restorePathing() {
       if (this.savedAllowBreak != null && this.savedAllowPlace != null) {
          try {
-            Settings settings = BaritoneAPI.getSettings();
-            settings.allowBreak.value = this.savedAllowBreak;
-            settings.allowPlace.value = this.savedAllowPlace;
+            BaritoneBridge.setAllowBreakPlace(this.savedAllowBreak, this.savedAllowPlace);
          } catch (RuntimeException var2) {
          }
 

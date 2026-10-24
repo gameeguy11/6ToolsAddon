@@ -1,9 +1,7 @@
 package gamerguy11.sixtoolsaddon.modules;
 
+import gamerguy11.sixtoolsaddon.baritone.BaritoneBridge;
 import gamerguy11.sixtoolsaddon.modules.utility.Spoofer;
-import baritone.api.BaritoneAPI;
-import baritone.api.pathing.goals.GoalBlock;
-import baritone.api.pathing.goals.GoalNear;
 import gamerguy11.sixtoolsaddon.SixToolsAddon;
 import gamerguy11.sixtoolsaddon.accessor.InputAccessor;
 import gamerguy11.sixtoolsaddon.mixin.accessor.PlayerInventoryAccessor;
@@ -314,8 +312,8 @@ public class StashMover extends Module {
          this.mc.player.closeHandledScreen();
       }
 
-      if (BaritoneAPI.getProvider().getPrimaryBaritone().getPathingBehavior().isPathing()) {
-         BaritoneAPI.getProvider().getPrimaryBaritone().getPathingBehavior().cancelEverything();
+      if (BaritoneBridge.isPathing()) {
+         BaritoneBridge.cancel();
       }
 
       this.mc.options.sneakKey.setPressed(false);
@@ -609,8 +607,8 @@ public class StashMover extends Module {
          this.mc.player.closeHandledScreen();
       }
 
-      if (BaritoneAPI.getProvider().getPrimaryBaritone().getPathingBehavior().isPathing()) {
-         BaritoneAPI.getProvider().getPrimaryBaritone().getPathingBehavior().cancelEverything();
+      if (BaritoneBridge.isPathing()) {
+         BaritoneBridge.cancel();
       }
 
       this.currentState = StashMover.ProcessState.IDLE;
@@ -723,11 +721,10 @@ public class StashMover extends Module {
       Vec3d eyePos = this.mc.player.getEyePos();
       double distance = eyePos.distanceTo(Vec3d.ofCenter(container.pos));
       if (distance > (double)3.5F) {
-         BaritoneAPI.getProvider().getPrimaryBaritone().getPathingBehavior().cancelEverything();
+         BaritoneBridge.cancel();
          BlockPos validPosition = this.findValidStandingPositionNear(container.pos);
          if (validPosition != null) {
-            GoalBlock goal = new GoalBlock(validPosition);
-            BaritoneAPI.getProvider().getPrimaryBaritone().getCustomGoalProcess().setGoalAndPath(goal);
+            BaritoneBridge.goToBlock(validPosition);
             this.currentState = StashMover.ProcessState.MOVING_TO_CONTAINER;
             if (distance > (double)20.0F) {
                this.stateTimer = 200;
@@ -740,8 +737,7 @@ public class StashMover extends Module {
             this.info("Moving to container (distance: " + String.format("%.1f", distance) + "m)", new Object[0]);
          } else {
             int nearDistance = Math.max(2, ((Double)this.containerReach.get()).intValue());
-            GoalNear goal = new GoalNear(container.pos, nearDistance);
-            BaritoneAPI.getProvider().getPrimaryBaritone().getCustomGoalProcess().setGoalAndPath(goal);
+            BaritoneBridge.goNear(container.pos, nearDistance);
             this.currentState = StashMover.ProcessState.MOVING_TO_CONTAINER;
             this.stateTimer = 120;
             this.warning("No ideal position found, using GoalNear for container", new Object[0]);
@@ -826,7 +822,7 @@ public class StashMover extends Module {
 
          this.lastPlayerPos = playerPos;
          if (distance <= (double)3.5F) {
-            BaritoneAPI.getProvider().getPrimaryBaritone().getPathingBehavior().cancelEverything();
+            BaritoneBridge.cancel();
             this.currentState = StashMover.ProcessState.OPENING_CONTAINER;
             this.stateTimer = 5;
             this.info("Reached container, opening...", new Object[0]);
@@ -834,7 +830,7 @@ public class StashMover extends Module {
             this.stuckCounter = 0;
             this.stuckRecoveryAttempts = 0;
             this.lastPlayerPos = null;
-         } else if (!BaritoneAPI.getProvider().getPrimaryBaritone().getPathingBehavior().isPathing()) {
+         } else if (!BaritoneBridge.isPathing()) {
             ++this.pathfindingFailures;
             if (this.pathfindingFailures >= 2) {
                this.warning("Pathfinding failed, using improved manual movement", new Object[0]);
@@ -848,7 +844,7 @@ public class StashMover extends Module {
             --this.stateTimer;
             if (this.stateTimer == 0) {
                this.warning("Movement timeout, switching to manual", new Object[0]);
-               BaritoneAPI.getProvider().getPrimaryBaritone().getPathingBehavior().cancelEverything();
+               BaritoneBridge.cancel();
                this.improvedManualMovement(this.currentContainer);
             }
          }
@@ -1513,8 +1509,7 @@ public class StashMover extends Module {
 
          if (bestPoint != null) {
             this.info("Trying alternative approach angle", new Object[0]);
-            GoalBlock goal = new GoalBlock(BlockPos.ofFloored(bestPoint));
-            BaritoneAPI.getProvider().getPrimaryBaritone().getCustomGoalProcess().setGoalAndPath(goal);
+            BaritoneBridge.goToBlock(BlockPos.ofFloored(bestPoint));
             this.currentState = StashMover.ProcessState.MOVING_TO_CONTAINER;
             this.stateTimer = 60;
          } else {
@@ -1817,8 +1812,7 @@ public class StashMover extends Module {
       if (this.enderChestPos != null) {
          this.currentState = StashMover.ProcessState.OPENING_ENDERCHEST;
          this.stateTimer = 0;
-         GoalNear goal = new GoalNear(this.enderChestPos, 2);
-         BaritoneAPI.getProvider().getPrimaryBaritone().getCustomGoalProcess().setGoalAndPath(goal);
+         BaritoneBridge.goNear(this.enderChestPos, 2);
          this.info("Moving to enderchest", new Object[0]);
       } else {
          FindItemResult enderChest = InvUtils.findInHotbar(new Item[]{Items.ENDER_CHEST});
@@ -1875,9 +1869,8 @@ public class StashMover extends Module {
             BlockHitResult hitResult = new BlockHitResult(enderChestCenter, Direction.UP, this.enderChestPos, false);
             this.mc.interactionManager.interactBlock(this.mc.player, Hand.MAIN_HAND, hitResult);
             this.stateTimer = 10;
-         } else if (!BaritoneAPI.getProvider().getPrimaryBaritone().getPathingBehavior().isPathing()) {
-            GoalNear goal = new GoalNear(this.enderChestPos, 2);
-            BaritoneAPI.getProvider().getPrimaryBaritone().getCustomGoalProcess().setGoalAndPath(goal);
+         } else if (!BaritoneBridge.isPathing()) {
+            BaritoneBridge.goNear(this.enderChestPos, 2);
             this.info("Moving to enderchest", new Object[0]);
          }
 
@@ -2187,8 +2180,7 @@ public class StashMover extends Module {
       this.ensureOffhandHasItem();
       double distance = this.mc.player.getEntityPos().distanceTo(Vec3d.ofCenter(pickupPos));
       if (distance > (double)3.0F) {
-         GoalBlock goal = new GoalBlock(pickupPos);
-         BaritoneAPI.getProvider().getPrimaryBaritone().getCustomGoalProcess().setGoalAndPath(goal);
+         BaritoneBridge.goToBlock(pickupPos);
          this.stateTimer = (Integer)this.moveDelay.get();
       } else {
          this.currentState = StashMover.ProcessState.RESET_PEARL_PLACE_SHULKER;
@@ -2227,8 +2219,7 @@ public class StashMover extends Module {
             this.hasPlacedShulker = true;
             this.info("Placed shulker in offhand, now walking to pressure plate", new Object[0]);
             BlockPos pickupPos = this.isGoingToInput ? (BlockPos)this.inputPearlPickupPos.get() : (BlockPos)this.outputPearlPickupPos.get();
-            GoalBlock goal = new GoalBlock(pickupPos);
-            BaritoneAPI.getProvider().getPrimaryBaritone().getCustomGoalProcess().setGoalAndPath(goal);
+            BaritoneBridge.goToBlock(pickupPos);
             this.stateTimer = 30;
          } else {
             this.info("No shulker in slot 0, continuing without offhand shulker", new Object[0]);
@@ -2245,8 +2236,7 @@ public class StashMover extends Module {
             BlockPos pickupPos = this.isGoingToInput ? (BlockPos)this.inputPearlPickupPos.get() : (BlockPos)this.outputPearlPickupPos.get();
             double distance = this.mc.player.getEntityPos().distanceTo(Vec3d.ofCenter(pickupPos));
             if (distance > (double)1.0F) {
-               GoalBlock goal = new GoalBlock(pickupPos);
-               BaritoneAPI.getProvider().getPrimaryBaritone().getCustomGoalProcess().setGoalAndPath(goal);
+               BaritoneBridge.goToBlock(pickupPos);
             }
 
             this.stateTimer = 5;
@@ -2265,8 +2255,8 @@ public class StashMover extends Module {
 
       double distance = this.mc.player.getEntityPos().distanceTo(Vec3d.ofCenter(throwPos));
       if (distance <= (double)1.5F) {
-         if (BaritoneAPI.getProvider().getPrimaryBaritone().getPathingBehavior().isPathing()) {
-            BaritoneAPI.getProvider().getPrimaryBaritone().getPathingBehavior().cancelEverything();
+         if (BaritoneBridge.isPathing()) {
+            BaritoneBridge.cancel();
          }
 
          this.lastBaritoneGoal = null;
@@ -2274,7 +2264,7 @@ public class StashMover extends Module {
          this.info("Starting precise positioning from adjacent block - stored safe retreat position", new Object[0]);
          this.currentState = StashMover.ProcessState.RESET_PEARL_PREPARE;
          this.stateTimer = 5;
-      } else if (BaritoneAPI.getProvider().getPrimaryBaritone().getPathingBehavior().isPathing()) {
+      } else if (BaritoneBridge.isPathing()) {
          this.stateTimer = 5;
       } else {
          BlockPos goalPos = null;
@@ -2318,8 +2308,7 @@ public class StashMover extends Module {
 
          if (this.lastBaritoneGoal == null || !this.lastBaritoneGoal.equals(goalPos)) {
             this.lastBaritoneGoal = goalPos;
-            GoalBlock goal = new GoalBlock(goalPos);
-            BaritoneAPI.getProvider().getPrimaryBaritone().getCustomGoalProcess().setGoalAndPath(goal);
+            BaritoneBridge.goToBlock(goalPos);
             this.info("Pathing to approach position", new Object[0]);
          }
 
@@ -3427,8 +3416,7 @@ public class StashMover extends Module {
          }
 
          if (bestAlternative != null) {
-            GoalBlock goal = new GoalBlock(bestAlternative);
-            BaritoneAPI.getProvider().getPrimaryBaritone().getCustomGoalProcess().setGoalAndPath(goal);
+            BaritoneBridge.goToBlock(bestAlternative);
             this.currentState = StashMover.ProcessState.MOVING_TO_CONTAINER;
             this.stateTimer = 100;
             this.info("Using alternative path via " + String.valueOf(bestAlternative), new Object[0]);
@@ -3486,7 +3474,7 @@ public class StashMover extends Module {
    }
 
    private void performStuckRecovery() {
-      BaritoneAPI.getProvider().getPrimaryBaritone().getPathingBehavior().cancelEverything();
+      BaritoneBridge.cancel();
       this.stopAllMovement();
       ++this.stuckRecoveryAttempts;
       if (this.stuckRecoveryAttempts >= 3) {
