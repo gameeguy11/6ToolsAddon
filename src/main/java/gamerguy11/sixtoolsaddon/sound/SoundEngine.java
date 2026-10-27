@@ -145,6 +145,7 @@ public final class SoundEngine {
          try {
             this.stamps.put(type, Files.getLastModifiedTime(dir));
          } catch (IOException var7) {
+            gamerguy11.sixtoolsaddon.utils.Swallowed.log("SoundEngine:147", var7);
          }
       }
 
@@ -167,6 +168,7 @@ public final class SoundEngine {
             this.scan(type);
          }
       } catch (IOException var4) {
+         gamerguy11.sixtoolsaddon.utils.Swallowed.log("SoundEngine:169", var4);
       }
 
    }

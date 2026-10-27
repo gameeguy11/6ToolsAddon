@@ -312,6 +312,7 @@ public class SixToolsAutoWasp extends Module {
             field.setAccessible(true);
             field.set(this, DISPLAY_TITLE);
         } catch (Throwable ignored) {
+           gamerguy11.sixtoolsaddon.utils.Swallowed.log("SixToolsAutoWasp:314", ignored);
         }
     }
 

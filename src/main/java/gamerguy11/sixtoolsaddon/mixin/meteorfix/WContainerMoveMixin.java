@@ -28,6 +28,7 @@ public abstract class WContainerMoveMixin {
             WindowPositionMemory.afterMove(window);
          }
       } catch (Throwable var8) {
+         gamerguy11.sixtoolsaddon.utils.Swallowed.log("WContainerMoveMixin:30", var8);
       }
 
    }

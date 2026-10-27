@@ -17,6 +17,7 @@ import gamerguy11.sixtoolsaddon.commands.StashSorterCommand;
 import gamerguy11.sixtoolsaddon.commands.StashStatus;
 import gamerguy11.sixtoolsaddon.chat.ChatService;
 import gamerguy11.sixtoolsaddon.commands.ChatCommand;
+import gamerguy11.sixtoolsaddon.gui.CalculatorTab;
 import gamerguy11.sixtoolsaddon.gui.ChatTab;
 import gamerguy11.sixtoolsaddon.gui.EnemiesTab;
 import gamerguy11.sixtoolsaddon.hud.ArmorHud;
@@ -86,6 +87,7 @@ import org.slf4j.Logger;
 public class SixToolsAddon extends MeteorAddon {
    public static final Logger LOG = LogUtils.getLogger();
    public static final Category CATEGORY = new Category("6Tools Addon");
+   public static final Category BASE_HUNTING = new Category("6Tools BaseHunting", net.minecraft.item.Items.SPYGLASS.getDefaultStack());
    public static final HudGroup HUD_GROUP = new HudGroup("6Tools Addon");
    public static final Color THEME_COLOR = new Color(0, 182, 182);
    private static final GithubRepo REPO = new GithubRepo("gameeguy11", "6ToolsAddon");
@@ -96,6 +98,20 @@ public class SixToolsAddon extends MeteorAddon {
    }
 
    public String getCommit() {
+
+      try (java.io.InputStream in = SixToolsAddon.class.getResourceAsStream("/sixtools-build.properties")) {
+         if (in != null) {
+            java.util.Properties props = new java.util.Properties();
+            props.load(in);
+            String commit = props.getProperty("commit", "").trim();
+            if (!commit.isEmpty()) {
+               return commit;
+            }
+         }
+      } catch (java.io.IOException error) {
+         LOG.debug("Could not read build info", error);
+      }
+
       return "0e646b42cc8ab11c24a48417f14d295d393a09a7";
    }
 
@@ -108,8 +124,20 @@ public class SixToolsAddon extends MeteorAddon {
       }
       SoundEngine.INSTANCE.rescan();
       Modules.get().add(new Efly());
+      Modules.get().add(new gamerguy11.sixtoolsaddon.basehunting.BaseHunter());
+      Modules.get().add(new gamerguy11.sixtoolsaddon.basehunting.BaseHuntStashFinder());
+      Modules.get().add(new gamerguy11.sixtoolsaddon.basehunting.BaseHuntNewChunks());
+      Modules.get().add(new gamerguy11.sixtoolsaddon.basehunting.BaseHuntFinder());
+      Modules.get().add(new gamerguy11.sixtoolsaddon.basehunting.BaseHuntAutoLog());
+      Modules.get().add(new gamerguy11.sixtoolsaddon.basehunting.BaseHuntVanityESP());
+      Modules.get().add(new gamerguy11.sixtoolsaddon.basehunting.BaseHuntAutoPortal());
+      Modules.get().add(new gamerguy11.sixtoolsaddon.basehunting.BaseHuntBeeCoords());
+      Modules.get().add(new gamerguy11.sixtoolsaddon.basehunting.BaseHuntLodestoneCoords());
+      Modules.get().add(new gamerguy11.sixtoolsaddon.basehunting.BaseHuntPortalPatternFinder());
+      gamerguy11.sixtoolsaddon.basehunting.XaeroHuntingLoader.init();
       Modules.get().add(new SixToolsAutoWasp());
       Modules.get().add(new SixToolsAutoFish());
+      Modules.get().add(new gamerguy11.sixtoolsaddon.modules.BetterSign());
       gamerguy11.sixtoolsaddon.utils.PacketPlaceTracker.init();
       Modules.get().add(new gamerguy11.sixtoolsaddon.modules.SixToolsScaffold());
       Modules.get().add(new gamerguy11.sixtoolsaddon.modules.SixToolsSpeedmine());
@@ -160,6 +188,7 @@ public class SixToolsAddon extends MeteorAddon {
       Commands.add(new CoordsCommand());
       Commands.add(new SpoofCommand());
       Commands.add(new ChestTrackerCommand());
+      Commands.add(new gamerguy11.sixtoolsaddon.commands.BaritoneCommand());
       Commands.add(new SetInput());
       Commands.add(new SetOutput());
       Commands.add(new SetClear());
@@ -171,6 +200,8 @@ public class SixToolsAddon extends MeteorAddon {
       moveTabAfter(EnemiesTab.class, FriendsTab.class);
       Tabs.add(new ChatTab());
       moveTabAfter(ChatTab.class, EnemiesTab.class);
+      Tabs.add(new CalculatorTab());
+      moveTabAfter(CalculatorTab.class, ChatTab.class);
       Hud.get().register(PlayerTrackerHud.INFO);
       Hud.get().register(DubCounterHud.INFO);
       Hud.get().register(StatsHud.INFO);
@@ -184,6 +215,7 @@ public class SixToolsAddon extends MeteorAddon {
 
    public void onRegisterCategories() {
       Modules.registerCategory(CATEGORY);
+      Modules.registerCategory(BASE_HUNTING);
    }
 
    public String getPackage() {

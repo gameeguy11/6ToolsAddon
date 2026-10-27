@@ -296,6 +296,7 @@ public final class WindowPositionMemory {
                }
             }
          } catch (Throwable var3) {
+            gamerguy11.sixtoolsaddon.utils.Swallowed.log("WindowPositionMemory:298", var3);
          }
 
          return Math.min((double)28.0F, window.height > (double)0.0F ? window.height : (double)28.0F);
@@ -314,6 +315,7 @@ public final class WindowPositionMemory {
 
             return Math.max(hh, hh + (window.height - hh) * Math.max((double)0.0F, Math.min((double)1.0F, progress)));
          } catch (Throwable var7) {
+            gamerguy11.sixtoolsaddon.utils.Swallowed.log("WindowPositionMemory:316", var7);
          }
       }
 
@@ -408,6 +410,7 @@ public final class WindowPositionMemory {
          CATPPUCCIN_ANIM_PROGRESS_METHOD = animClass.getMethod("getProgress");
          catppuccinReflectionReady = true;
       } catch (Throwable var2) {
+         gamerguy11.sixtoolsaddon.utils.Swallowed.log("WindowPositionMemory:410", var2);
       }
 
    }

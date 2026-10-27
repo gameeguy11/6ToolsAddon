@@ -291,6 +291,7 @@ public final class ChatService {
             try {
                this.keys.put(entry.getKey().toLowerCase(Locale.ROOT), DmCrypto.parse(entry.getValue().getAsString()));
             } catch (GeneralSecurityException | RuntimeException ignored) {
+               gamerguy11.sixtoolsaddon.utils.Swallowed.log("ChatService:293", ignored);
             }
          }
       }

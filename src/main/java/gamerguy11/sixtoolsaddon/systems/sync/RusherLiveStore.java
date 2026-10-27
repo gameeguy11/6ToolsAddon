@@ -96,6 +96,7 @@ public final class RusherLiveStore extends SocialsStore {
             }
          }
       } catch (Throwable ignored) {
+         gamerguy11.sixtoolsaddon.utils.Swallowed.log("RusherLiveStore:98", ignored);
       }
    }
 
@@ -115,6 +116,7 @@ public final class RusherLiveStore extends SocialsStore {
                return text;
             }
          } catch (Throwable ignored) {
+            gamerguy11.sixtoolsaddon.utils.Swallowed.log("RusherLiveStore:117", ignored);
          }
       }
 
@@ -205,6 +207,7 @@ public final class RusherLiveStore extends SocialsStore {
       try {
          method.invoke(manager, name);
       } catch (Throwable ignored) {
+         gamerguy11.sixtoolsaddon.utils.Swallowed.log("RusherLiveStore:207", ignored);
       }
    }
 

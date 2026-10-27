@@ -342,6 +342,7 @@ public final class LambdaFriendsStore extends SocialsStore {
             }
          }
       } catch (Throwable ignored) {
+         gamerguy11.sixtoolsaddon.utils.Swallowed.log("LambdaFriendsStore:344", ignored);
       }
 
       return null;

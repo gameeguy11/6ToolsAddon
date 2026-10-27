@@ -135,6 +135,7 @@ public class SixToolsScaffold extends Module {
             field.setAccessible(true);
             field.set(this, title);
         } catch (Throwable ignored) {
+           gamerguy11.sixtoolsaddon.utils.Swallowed.log("SixToolsScaffold:137", ignored);
         }
     }
 

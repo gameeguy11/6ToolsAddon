@@ -246,6 +246,7 @@ public class SocialSync extends Module {
          try {
             this.lambda.flushPending();
          } catch (Exception ignored) {
+            gamerguy11.sixtoolsaddon.utils.Swallowed.log("SocialSync:248", ignored);
          }
       }
 

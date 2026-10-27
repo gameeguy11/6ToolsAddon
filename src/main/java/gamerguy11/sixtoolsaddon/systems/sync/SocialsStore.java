@@ -60,6 +60,7 @@ public abstract class SocialsStore {
          try {
             next = Path.of(text);
          } catch (Exception ignored) {
+            gamerguy11.sixtoolsaddon.utils.Swallowed.log("SocialsStore:62", ignored);
          }
       }
 

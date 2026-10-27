@@ -38,6 +38,7 @@ public final class ThemeColorUtils {
                   }
                }
             } catch (ReflectiveOperationException var7) {
+               gamerguy11.sixtoolsaddon.utils.Swallowed.log("ThemeColorUtils:40", var7);
             }
          }
 

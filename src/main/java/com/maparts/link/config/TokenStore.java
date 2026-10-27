@@ -19,7 +19,7 @@ public final class TokenStore {
         try {
             Files.writeString(path(), token);
         } catch (IOException ignored) {
-
+           gamerguy11.sixtoolsaddon.utils.Swallowed.log("TokenStore:21", ignored);
         }
     }
 

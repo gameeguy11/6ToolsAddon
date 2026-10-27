@@ -163,6 +163,7 @@ public class MapDuplicator extends Module {
                      }
                   }
                } catch (Exception var5) {
+                  gamerguy11.sixtoolsaddon.utils.Swallowed.log("MapDuplicator:165", var5);
                }
             }
          } else if (handler instanceof CraftingScreenHandler) {
@@ -175,6 +176,7 @@ public class MapDuplicator extends Module {
                      }
                   }
                } catch (Exception var4) {
+                  gamerguy11.sixtoolsaddon.utils.Swallowed.log("MapDuplicator:177", var4);
                }
             }
          }

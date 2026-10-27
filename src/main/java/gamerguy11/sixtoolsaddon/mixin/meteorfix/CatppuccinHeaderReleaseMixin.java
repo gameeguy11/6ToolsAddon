@@ -36,6 +36,7 @@ public abstract class CatppuccinHeaderReleaseMixin {
             WindowPositionMemory.afterDragEnd(window);
          }
       } catch (Throwable var4) {
+         gamerguy11.sixtoolsaddon.utils.Swallowed.log("CatppuccinHeaderReleaseMixin:38", var4);
       }
 
    }
@@ -54,6 +55,7 @@ public abstract class CatppuccinHeaderReleaseMixin {
          dragging = WWindow.class.getDeclaredField("dragging");
          dragging.setAccessible(true);
       } catch (Throwable var4) {
+         gamerguy11.sixtoolsaddon.utils.Swallowed.log("CatppuccinHeaderReleaseMixin:56", var4);
       }
 
       OUTER = outer;

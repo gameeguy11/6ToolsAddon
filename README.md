@@ -31,16 +31,11 @@ A [Meteor Client](https://github.com/MeteorDevelopment/meteor-client) addon for 
 ## Modules
 
 <details>
-<summary> notebot stealer</summary>
+<summary> .baritone</summary>
 
-Records noteblock songs played near you and saves each one as an `.nbs` file (NBS v5,
-20 ticks per second) in `.minecraft/meteor-client/notebot`, ready to play with Meteor's
-Notebot. A new file is written when the song goes silent for 3 seconds, when a noteblock
-is retuned, when you leave the world, or when you turn the module off. Recordings shorter
-than 5 seconds are discarded as tuning noise.
-
-Also adds `tune-hits-per-tick` to Meteor's Notebot, and makes it play whole chords and
-respect `polyphonic`. It pauses with an error if your held item would break the noteblocks.
+`.baritone <command, module>` runs any Baritone command (`.baritone goto 100 64 100`) or, for a lone setting name,
+shows its value (`.baritone allowSprint`). `.baritone settings [filter]` lists settings, and `.baritone` alone shows
+which Baritone is loaded. The dekrom fork is recommended; the command links to it when it isn't installed.
 
 </details>
 
@@ -249,6 +244,37 @@ Casts and reels in automatically. A bite is detected from the bobber's fish-caug
 `recast-timeout` recasts when nothing bites (0 disables). `save-fish` writes big catches
 (at least `min-fish-size` cm) to an HTML file, opened with the My fish button.
 
+Fish from a boat. `boat-advice` (on by default) reminds you in chat to sit in one when you are not, turn it
+off to stop the reminder. The boat stays in place while you fish.
+
+- `look-around` (with `look-around-degrees`) turns only the camera, once, when the server says to move or look
+  around before casting again, and again each time that message comes back. `look-after-catch` (off by default, it shifts
+  where the bobber lands) does the same after every catch.
+- `move-hook-on-no-fish`: the module remembers where the bobber floated. When the chat says there are no more fish
+  in this area it reels in and casts about `hook-move-distance` + 1 blocks (4 by default) away along X or Z, on a random side
+  that has water, and keeps fishing there. When the message comes again it goes back to the spot it left, and the
+  next time after that it picks a new random side again. The aim is worked out from the bobber's flight path, checked
+  once it lands and corrected with a few retries. The boat does not move.
+- `idle-move`: after `idle-move-time` seconds without a catch the boat drives `idle-move-distance` blocks forward,
+  back, left or right at random, but only to a spot with at least `edge-margin` blocks of open water on every
+  side, so it stays in the middle of the pond. It is turned back to its old heading afterwards. `stay-in-water`
+  stops it before it would leave the water.
+
+</details>
+
+<details>
+<summary> better sign</summary>
+
+Writes your text on signs. Open a sign and it fills itself in, `both-sides` writes the back as well
+(`different-text-on-rear` gives the back its own lines). The normal and the hanging sign text are separate groups,
+both default to `JOIN ChickenCult` / `dc.gg/HX6rSFg3k` / `Event hosting` / `community`. The lines understand Meteor
+starscript. `auto-dye` and `auto-glow` dye and glow what you write, `auto-place` puts a sign on the block you just
+placed or clicked.
+
+`sign-aura` edits the nearest sign in range first (`sign-aura-range`, `sign-aura-delay`, `sign-aura-rotate`) and
+writes front and back. It skips waxed signs and signs that already have the text, waits for the editor to open and
+tries again up to three times if it does not, and finishes the back even if the first open was interrupted.
+
 </details>
 
 <details>
@@ -270,6 +296,54 @@ enemy stands in, `anti-surround` the blocks boxing them in, `feet-first` goes lo
 `enemy-range` sets how far to look, `auto-mine-bind` makes auto-mine hold-to-use,
 `auto-mine-only` ignores blocks you click yourself, `never-mine-own` skips blocks touching
 you, `auto-double-mine` breaks two targets at once and `mine-bedrock` includes bedrock.
+
+</details>
+
+<details>
+<summary> 6Tools BaseHunting tab</summary>
+
+A separate module tab for finding bases and stashes. Combines the ideas of Stash Hunter and
+the meteor stash hunting addon, but the flying is done by your own Efly instead of a second
+elytra controller.
+
+- **base-hunter**: `mode` Rectangle flies strips over the area between `start-position`
+  and `end-position`, Spiral flies outwards from where you start, Trail follows newly
+  generated chunks (`trail-radius`, `trail-angle`, `chunks-before-starting`,
+  `lost-trail-timeout`). It turns your yaw and pitch (`turn-speed`, `hold-altitude`,
+  `altitude`, `max-pitch`) and switches Efly on with its auto pilot and fireworks
+  (`enable-efly`, `efly-autopilot`, `auto-takeoff`, `max-speed` in blocks per second), then puts Efly's settings back when it stops.
+  `speed-ramp` climbs to `max-speed` gradually instead of jumping to it, which stops servers from rubberbanding you. Waypoints count as reached once you are inside your turning circle (from your speed and `turn-speed`), so fast flights spiral outwards instead of orbiting a corner.
+  `enable-new-chunks` and `enable-stash-finder` start the helper modules with it,
+  `waypoint-on-find` drops a map waypoint (Xaero if installed, else Meteor) on every stash found, in any mode including Spiral, `stop-on-find` stops on a stash and `disconnect-on-finish` logs out after a rectangle.
+- **hunt-stash-finder**: counts storage blocks per chunk as chunks load. `minimum-storage`,
+  `cluster-radius` and `cluster-minimum-storage` decide what counts, `minimum-density`,
+  `maximum-volume` and `ignore-spawner-chunks` filter out natural structures. `save-to-waypoints` marks every find on the map; a cluster never reports below `minimum-storage`. Finds show in
+  chat with a sound, are saved to `6ToolsAddon/BaseHunting/stashes.csv`, can be sent to a
+  Discord webhook and are drawn as boxes. `ignore-in-homes` stops it from alerting while you
+  are standing inside one of your Homes (same for better-stash-finder and old-chunk-notifier).
+- **hunt-new-chunks**: detects new chunks from the chunk palette order. Trail mode reads it.
+- **base-finder**: estimates if a build or base is in a chunk from the blocks in it. `ignore-in-homes` pauses it while you are inside a Home.
+- **vanity-esp**: highlights item frames holding maparts and banners.
+- **auto-portal**: places and lights a portal for you.
+- **bee-coord-exploit**: hold a bee nest or hive, toggle it and it prints the flower positions saved in its bees.
+- **lodestone-coords**: prints the coordinates bound to the lodestone compass in your hand.
+- **portal-pattern-finder**: scans cave-air blocks in 1.13+ chunks for the shape of broken or removed Nether portals, useful for portal skips. Logs go to `6ToolsAddon/PortalPatterns`.
+- **Xaero modules**, only added when XaeroPlus, Xaero's Minimap and Xaero's World Map are all
+  installed:
+  - **better-stash-finder**: the stash finder from the stash hunting addon. Skips
+    unloaded chunks, marks finds on the Xaero minimap and sends them to a Discord webhook.
+  - **old-chunk-notifier**: sends a webhook message, and can ping you, when an old
+    chunk is found.
+  - **trail-follower**: follows trails of new chunks read from XaeroPlus. In the
+    Overworld it turns your yaw with Efly doing the flight (`overworld-flight-mode`, `auto-firework`,
+    `hold-altitude`, `altitude`). In the Nether it uses Baritone, so the Baritone jar must be
+    in `libs` or installed.
+- **hunt-autolog**: disconnects on low elytra durability, a player in range, dropping
+  below a Y level or low health.
+
+All BaseHunting webhooks (stash finders, old-chunk-notifier, trail-follower) are sent as Discord embeds with your
+player head, a colour per module, plain coordinates, dimension, server and a timestamp. The better-stash-finder
+embed lists the storage counts per block type, and pings go in the same message as the embed.
 
 </details>
 
@@ -1167,6 +1241,15 @@ versions if any of them move.
 - **Meteor Fix**, one of the Meteor bug fixes used Fractal420's
   [Meteor-GUI-Position-Fix](https://github.com/Fractal420/Meteor-GUI-Position-Fix).
 - **Lucky1821**
+- **BaseHunting** is built from [omtoi101](https://github.com/omtoi101)'s
+  [Stash-Hunter](https://github.com/omtoi101/Stash-Hunter) (Apache-2.0),
+  [miles352](https://github.com/miles352)'s
+  [meteor-stashhunting-addon](https://github.com/miles352/meteor-stashhunting-addon)
+  and [etianl](https://github.com/etianl)'s
+  [Trouser-Streak](https://github.com/etianl/Trouser-Streak). The flying is done by Efly instead of their own elytra controllers.
+- **Better sign** is ported from [etianl](https://github.com/etianl)'s [Trouser-Streak](https://github.com/etianl/Trouser-Streak)
+  `BetterAutoSign`, which itself comes from [Meteor Tweaks](https://github.com/Declipsonator/Meteor-Tweaks/) by
+  Declipsonator (LGPL-3.0). The sign aura and the writing of both sides were reworked here.
 - **Wither Print** is based on [ComicSquid74273](https://github.com/ComicSquid74273)'s
   Wither printer: <https://github.com/ComicSquid74273/Wither-printer>.
 

@@ -117,7 +117,7 @@ public final class LinkCommand {
         ModChat.feedback(source, Text.literal(
                 "Upload maparts with /mapselect (two corners) +"
                         + " /mapupload, or just /mapupload while looking"
-                        + " at the wall or floor.").formatted(Formatting.GRAY));
+                        + " at the wall or floor. /maphelp opens the website.").formatted(Formatting.GRAY));
         ModChat.feedback(source, Links.prefixedLink(
                 "→ ", "Open your dashboard",
                 BACKEND_URL + "/dashboard"));

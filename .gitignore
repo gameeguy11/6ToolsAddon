@@ -8,6 +8,3 @@ out/
 worker/.wrangler/
 .DS_Store
 version.properties
-/src/main/java/gamerguy11/sixtoolsaddon/modules/world/Printer.java
-/src/main/java/gamerguy11/sixtoolsaddon/printer/
-/src/main/java/gamerguy11/sixtoolsaddon/NOTES.md

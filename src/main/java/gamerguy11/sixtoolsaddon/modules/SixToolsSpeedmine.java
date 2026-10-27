@@ -251,6 +251,7 @@ public class SixToolsSpeedmine extends Module {
             field.setAccessible(true);
             field.set(this, title);
         } catch (Throwable ignored) {
+           gamerguy11.sixtoolsaddon.utils.Swallowed.log("SixToolsSpeedmine:253", ignored);
         }
     }
 

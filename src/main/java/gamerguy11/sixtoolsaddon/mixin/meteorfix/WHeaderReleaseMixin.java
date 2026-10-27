@@ -34,6 +34,7 @@ public abstract class WHeaderReleaseMixin {
             WindowPositionMemory.afterDragEnd(window);
          }
       } catch (Throwable var4) {
+         gamerguy11.sixtoolsaddon.utils.Swallowed.log("WHeaderReleaseMixin:36", var4);
       }
 
    }
@@ -52,6 +53,7 @@ public abstract class WHeaderReleaseMixin {
          dragging = WWindow.class.getDeclaredField("dragging");
          dragging.setAccessible(true);
       } catch (Throwable var4) {
+         gamerguy11.sixtoolsaddon.utils.Swallowed.log("WHeaderReleaseMixin:54", var4);
       }
 
       OUTER = outer;

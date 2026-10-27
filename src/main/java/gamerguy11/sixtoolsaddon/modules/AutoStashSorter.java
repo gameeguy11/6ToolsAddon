@@ -989,6 +989,7 @@ public class AutoStashSorter extends Module {
 
          BaritoneBridge.setAllowBreakPlace(false, false);
       } catch (RuntimeException var3) {
+         gamerguy11.sixtoolsaddon.utils.Swallowed.log("AutoStashSorter:991", var3);
       }
 
    }
@@ -998,6 +999,7 @@ public class AutoStashSorter extends Module {
          try {
             BaritoneBridge.setAllowBreakPlace(this.savedAllowBreak, this.savedAllowPlace);
          } catch (RuntimeException var2) {
+            gamerguy11.sixtoolsaddon.utils.Swallowed.log("AutoStashSorter:1000", var2);
          }
 
          this.savedAllowBreak = null;

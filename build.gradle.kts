@@ -50,6 +50,22 @@ repositories {
         name = "meteor-maven-snapshots"
         url = uri("https://maven.meteordev.org/snapshots")
     }
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = "Modrinth"
+                url = uri("https://api.modrinth.com/maven")
+            }
+        }
+        filter {
+            includeGroup("maven.modrinth")
+        }
+    }
+    mavenCentral()
+}
+
+loom {
+    accessWidenerPath = file("src/main/resources/sixtoolsaddon.accesswidener")
 }
 
 dependencies {
@@ -63,12 +79,19 @@ dependencies {
 
     modImplementation(libs.meteor.client)
 
+    modCompileOnly("maven.modrinth:xaeroplus:2.30.9+fabric-1.21.11")
+    modCompileOnly("maven.modrinth:xaeros-world-map:fabric-1.21.11-1.40.11")
+    modCompileOnly("maven.modrinth:xaeros-minimap:fabric-1.21.11-25.3.10")
+    compileOnly("net.lenni0451:LambdaEvents:2.4.2")
+    compileOnly("com.github.ben-manes.caffeine:caffeine:3.1.8")
+
     val preferredBaritone = file("libs/baritone-api-fabric-1.3.0-1.21.11.jar")
     val baritoneJar = if (preferredBaritone.exists()) preferredBaritone else file("libs").listFiles { f -> f.isFile && f.name.startsWith("baritone") && f.name.endsWith(".jar") }?.sortedByDescending { it.name }?.firstOrNull()
-    if (baritoneJar != null) {
-        modCompileOnly(files(baritoneJar))
-        modLocalRuntime(files(baritoneJar))
+    if (baritoneJar == null) {
+        throw GradleException("No Baritone API jar found in libs/. Put baritone-api-fabric-1.3.0-1.21.11.jar there (https://github.com/dekrom/baritone/releases/tag/v1.3.0-1.21.11).")
     }
+    modCompileOnly(files(baritoneJar))
+    modLocalRuntime(files(baritoneJar))
 }
 
 java {
@@ -87,6 +110,18 @@ tasks {
         )
 
         inputs.properties(propertyMap)
+
+        val gitCommit = try {
+            val proc = ProcessBuilder("git", "rev-parse", "HEAD").directory(projectDir).redirectErrorStream(true).start()
+            val out = proc.inputStream.bufferedReader().readText().trim()
+            if (proc.waitFor() == 0 && out.matches(Regex("[0-9a-f]{40}"))) out else ""
+        } catch (e: Exception) {
+            ""
+        }
+        inputs.property("gitCommit", gitCommit)
+        doLast {
+            File(destinationDir, "sixtools-build.properties").writeText("commit=$gitCommit\n")
+        }
         filesMatching("fabric.mod.json") {
             expand(propertyMap)
         }

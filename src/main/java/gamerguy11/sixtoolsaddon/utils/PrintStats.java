@@ -30,6 +30,7 @@ public final class PrintStats {
                }
             }
          } catch (Exception ignored) {
+            gamerguy11.sixtoolsaddon.utils.Swallowed.log("PrintStats:32", ignored);
          }
       }
 
@@ -65,6 +66,7 @@ public final class PrintStats {
          Files.createDirectories(FILE.getParent());
          Files.writeString(FILE, GSON.toJson(totals()));
       } catch (IOException ignored) {
+         gamerguy11.sixtoolsaddon.utils.Swallowed.log("PrintStats:67", ignored);
       }
    }
 }

@@ -23,6 +23,7 @@
     "meteor": ["gamerguy11.sixtoolsaddon.SixToolsAddon"],
     "client": ["com.maparts.link.MapartsLinkMod"]
   },
+  "accessWidener": "sixtoolsaddon.accesswidener",
   "mixins": [
     "sixtoolsaddon.mixins.json",
     "sixtoolsaddon.spoof.mixins.json"
@@ -38,6 +39,9 @@
   },
   "suggests": {
     "baritone": "*",
-    "baritone-meteor": "*"
+    "baritone-meteor": "*",
+    "xaeroplus": "*",
+    "xaerominimap": "*",
+    "xaeroworldmap": "*"
   }
 }

@@ -37,6 +37,7 @@ public abstract class WWindowLayoutMixin {
             }
          }
       } catch (Throwable var6) {
+         gamerguy11.sixtoolsaddon.utils.Swallowed.log("WWindowLayoutMixin:39", var6);
       }
 
    }

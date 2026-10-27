@@ -90,6 +90,7 @@ public abstract class WContainerDropdownPriorityMixin {
          field = WDropdown.class.getDeclaredField("expanded");
          field.setAccessible(true);
       } catch (Throwable var2) {
+         gamerguy11.sixtoolsaddon.utils.Swallowed.log("WContainerDropdownPriorityMixin:92", var2);
       }
 
       EXPANDED_FIELD = field;

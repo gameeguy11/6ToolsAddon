@@ -31,15 +31,15 @@ public final class CustomSplashes {
    private static final Map<Object, Splash> RENDERED = Collections.synchronizedMap(new WeakHashMap<>());
    private static final AtomicBoolean CHECK_STARTED = new AtomicBoolean();
    private static final String VERSION = FabricLoader.getInstance()
-      .getModContainer(ADDON_ID)
-      .map(container -> container.getMetadata().getVersion().getFriendlyString())
-      .orElse("unknown");
+           .getModContainer(ADDON_ID)
+           .map(container -> container.getMetadata().getVersion().getFriendlyString())
+           .orElse("unknown");
    private static final List<Splash> FIXED = List.of(
-      new Splash("JOIN CHICKEN CULT \u00a7#00B6B6\u00a7l\u00a7nCLICK ME", "https://discord.gg/HX6rSFg3k"),
-      new Splash("Report issues here", "https://github.com/gameeguy11/6ToolsAddon/issues"),
-      new Splash("Skidded by Lucky1821", "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
-   );
-
+           new Splash("JOIN CHICKEN CULT \u00a7#00B6B6\u00a7l\u00a7nCLICK ME", "https://discord.gg/HX6rSFg3k"),
+           new Splash("Report issues here", "https://github.com/gameeguy11/6ToolsAddon/issues"),
+           new Splash("Skidded by Lucky1821", "https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
+           new Splash("Go and upload your maps. New Mapart Archive", "https://6b-maparts.com/")
+         );
    private static volatile Boolean upToDate;
    private static volatile Splash current;
    private static volatile long nextChange;
@@ -143,22 +143,22 @@ public final class CustomSplashes {
       }
 
       HttpRequest request = HttpRequest.newBuilder(URI.create(LATEST_API))
-         .timeout(Duration.ofSeconds(5))
-         .header("User-Agent", "6ToolsAddon")
-         .header("Accept", "application/vnd.github+json")
-         .build();
+              .timeout(Duration.ofSeconds(5))
+              .header("User-Agent", "6ToolsAddon")
+              .header("Accept", "application/vnd.github+json")
+              .build();
 
       HttpClient.newHttpClient()
-         .sendAsync(request, HttpResponse.BodyHandlers.ofString())
-         .thenAccept(response -> {
-            if (response.statusCode() != 200) {
-               return;
-            }
+              .sendAsync(request, HttpResponse.BodyHandlers.ofString())
+              .thenAccept(response -> {
+                 if (response.statusCode() != 200) {
+                    return;
+                 }
 
-            String tag = JsonParser.parseString(response.body()).getAsJsonObject().get("tag_name").getAsString();
-            upToDate = !isNewer(tag, VERSION);
-         })
-         .exceptionally(error -> null);
+                 String tag = JsonParser.parseString(response.body()).getAsJsonObject().get("tag_name").getAsString();
+                 upToDate = !isNewer(tag, VERSION);
+              })
+              .exceptionally(error -> null);
    }
 
    private static boolean isNewer(String remote, String local) {

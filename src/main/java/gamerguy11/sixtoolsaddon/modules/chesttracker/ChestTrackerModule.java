@@ -686,6 +686,7 @@ public class ChestTrackerModule extends Module {
                   }
                }
             } catch (Exception var8) {
+               gamerguy11.sixtoolsaddon.utils.Swallowed.log("ChestTrackerModule:688", var8);
             }
 
             return null;

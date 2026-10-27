@@ -41,6 +41,7 @@ public final class ChatConfig {
             }
          }
       } catch (IOException | RuntimeException ignored) {
+         gamerguy11.sixtoolsaddon.utils.Swallowed.log("ChatConfig:43", ignored);
       }
 
       return new ChatConfig();
@@ -51,6 +52,7 @@ public final class ChatConfig {
          Files.createDirectories(FILE.getParent());
          Files.writeString(FILE, GSON.toJson(this));
       } catch (IOException ignored) {
+         gamerguy11.sixtoolsaddon.utils.Swallowed.log("ChatConfig:53", ignored);
       }
    }
 

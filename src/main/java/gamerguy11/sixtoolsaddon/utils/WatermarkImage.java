@@ -107,6 +107,7 @@ public final class WatermarkImage {
       try {
          Files.createDirectories(folder());
       } catch (IOException ignored) {
+         gamerguy11.sixtoolsaddon.utils.Swallowed.log("WatermarkImage:109", ignored);
       }
 
       byte[] source;

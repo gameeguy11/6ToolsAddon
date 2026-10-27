@@ -2,6 +2,7 @@ package com.maparts.link;
 
 import com.maparts.link.capture.FrameDataWaiter;
 import com.maparts.link.command.LinkCommand;
+import com.maparts.link.command.MapHelpCommand;
 import com.maparts.link.command.MapSelectCommand;
 import com.maparts.link.command.MapUploadAllCommand;
 import com.maparts.link.command.MapUploadCommand;
@@ -16,6 +17,7 @@ public final class MapartsLinkMod implements ClientModInitializer {
         ClientCommandRegistrationCallback.EVENT.register(
                 (dispatcher, registryAccess) -> {
                     LinkCommand.register(dispatcher);
+                    MapHelpCommand.register(dispatcher);
                     MapSelectCommand.register(dispatcher);
                     MapUploadCommand.register(dispatcher);
                     MapUploadAllCommand.register(dispatcher);

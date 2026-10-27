@@ -30,9 +30,19 @@ public final class BaritoneCheck {
       return hasNew() || hasOld();
    }
 
+   public static final String DEKROM_URL = "https://github.com/dekrom/baritone/tree/1.21.11";
+
+   public static boolean isDekrom() {
+      return BaritoneInfo.hasSetting("elytraStandingTakeoff");
+   }
+
    public static String warningMessage() {
       if (!isPresent()) {
-         return "Baritone is not installed. 6Tools modules that use Baritone (Stash Sorter, Stash Mover, Chest Tracker auto-open) will not work. Put baritone-api-fabric-1.3.0-1.21.11.jar in your mods folder.";
+         return "Baritone is not installed. 6Tools modules that use Baritone (Stash Sorter, Stash Mover, Chest Tracker auto-open) will not work. Install the dekrom Baritone (recommended): " + DEKROM_URL;
+      }
+
+      if (hasOld() && hasNew()) {
+         return "Two Baritone jars are installed (mod ids '" + OLD_ID + "' and '" + NEW_ID + "'). They conflict. Keep only the dekrom one: " + DEKROM_URL;
       }
 
       return null;
