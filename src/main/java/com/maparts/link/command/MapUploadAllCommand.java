@@ -1,4 +1,4 @@
-﻿package com.maparts.link.command;
+package com.maparts.link.command;
 
 import com.maparts.link.capture.FrameDataWaiter;
 import com.maparts.link.capture.MapGridCapture;

@@ -1,4 +1,4 @@
-﻿package com.maparts.link.capture;
+package com.maparts.link.capture;
 
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;

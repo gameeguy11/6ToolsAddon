@@ -1,4 +1,4 @@
-﻿package com.maparts.link.command;
+package com.maparts.link.command;
 
 import com.maparts.link.config.TokenStore;
 import com.maparts.link.http.BackendClient;

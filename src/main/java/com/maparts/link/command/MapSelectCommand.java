@@ -1,4 +1,4 @@
-﻿package com.maparts.link.command;
+package com.maparts.link.command;
 
 import com.maparts.link.capture.MapGridCapture;
 import com.maparts.link.capture.SelectionState;

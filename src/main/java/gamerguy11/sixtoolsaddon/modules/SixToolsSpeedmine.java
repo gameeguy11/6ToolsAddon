@@ -1,4 +1,4 @@
-﻿package gamerguy11.sixtoolsaddon.modules;
+package gamerguy11.sixtoolsaddon.modules;
 
 import meteordevelopment.meteorclient.events.entity.player.StartBreakingBlockEvent;
 import meteordevelopment.meteorclient.events.render.Render3DEvent;

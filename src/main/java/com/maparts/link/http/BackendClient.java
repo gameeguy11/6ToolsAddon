@@ -1,4 +1,4 @@
-﻿package com.maparts.link.http;
+package com.maparts.link.http;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
