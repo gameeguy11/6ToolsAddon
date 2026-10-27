@@ -1,4 +1,4 @@
-package com.maparts.link.http;
+﻿package com.maparts.link.http;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -332,7 +332,7 @@ public final class BackendClient {
     private static String errorMessage(JsonObject json, int statusCode) {
         if (statusCode == 401) {
 
-            return "Your website link was revoked or expired — get a new code"
+            return "Your website link was revoked or expired, get a new code"
                     + " on the site and run /maplink again.";
         }
 

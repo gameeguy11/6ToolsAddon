@@ -1,4 +1,4 @@
-package com.maparts.link.command;
+﻿package com.maparts.link.command;
 
 import com.maparts.link.capture.MapGridCapture;
 import com.maparts.link.http.BackendClient;
@@ -20,7 +20,7 @@ final class UploadPipeline {
             return new Outcome(true,
                     alreadyOwned
                             ? "You already own this mapart."
-                            : "This mapart already exists — you've been added as an owner.",
+                            : "This mapart already exists, you've been added as an owner.",
                     LinkCommand.BACKEND_URL + "/maparts/" + mapartId,
                     "Open it on the site");
         }

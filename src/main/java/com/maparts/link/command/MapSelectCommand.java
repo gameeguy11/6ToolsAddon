@@ -1,4 +1,4 @@
-package com.maparts.link.command;
+﻿package com.maparts.link.command;
 
 import com.maparts.link.capture.MapGridCapture;
 import com.maparts.link.capture.SelectionState;
@@ -50,7 +50,7 @@ public final class MapSelectCommand {
                 || MapGridCapture.validateWallFrame(client, firstFrame) != null) {
             SelectionState.setFirst(frame.getId());
             ModChat.feedback(source, Text.literal(
-                    "The first corner is gone — starting over. Corner 1 set;"
+                    "The first corner is gone, starting over. Corner 1 set;"
                             + " look at the opposite corner and run /mapselect"
                             + " again.").formatted(Formatting.GRAY));
             return Command.SINGLE_SUCCESS;
@@ -67,7 +67,7 @@ public final class MapSelectCommand {
         int[] size = MapGridCapture.gridSize(firstFrame, frame);
         ModChat.feedback(source, Text.literal(
                 "Selected a " + size[0] + "x" + size[1]
-                        + " mapart — run /mapupload [title] to upload it.")
+                        + " mapart, run /mapupload [title] to upload it.")
                 .formatted(Formatting.GREEN));
 
         return Command.SINGLE_SUCCESS;

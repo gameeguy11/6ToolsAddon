@@ -1,4 +1,4 @@
-package com.maparts.link.command;
+﻿package com.maparts.link.command;
 
 import com.maparts.link.capture.FrameDataWaiter;
 import com.maparts.link.capture.MapGridCapture;
@@ -46,7 +46,7 @@ public final class MapUploadAllCommand {
 
         if (FrameDataWaiter.isBusy()) {
             ModChat.error(source, Text.literal(
-                    "Still processing a previous capture — wait for it to finish."));
+                    "Still processing a previous capture, wait for it to finish."));
             return 0;
         }
 
@@ -54,7 +54,7 @@ public final class MapUploadAllCommand {
 
         if (uploadHost == null) {
             ModChat.error(source, Text.literal(
-                    "Uploads are for 6b6t maparts — connect to 6b6t"
+                    "Uploads are for 6b6t maparts, connect to 6b6t"
                             + " (e.g. play.6b6t.org) and try again."));
             return 0;
         }
@@ -88,7 +88,7 @@ public final class MapUploadAllCommand {
                 summary.append(" (").append(wall.skippedIrregular())
                         .append(" irregular group")
                         .append(wall.skippedIrregular() == 1 ? "" : "s")
-                        .append(" skipped — use /mapselect for those)");
+                        .append(" skipped, use /mapselect for those)");
             }
 
             summary.append(". Uploading…");
@@ -108,7 +108,7 @@ public final class MapUploadAllCommand {
                 chain = chain.thenCompose(ignored ->
                         UploadPipeline.upload(backend, token, uploadHost, title, segment,
                                         () -> client.execute(() -> ModChat.feedback(source,
-                                                Text.literal(label + ": upload failed —"
+                                                Text.literal(label + ": upload failed,"
                                                                 + " retrying in 5s…")
                                                         .formatted(Formatting.GRAY))))
                                 .thenAccept(outcome -> client.execute(() -> {

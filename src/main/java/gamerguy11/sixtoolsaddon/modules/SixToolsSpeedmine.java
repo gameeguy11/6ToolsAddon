@@ -1,4 +1,4 @@
-package gamerguy11.sixtoolsaddon.modules;
+﻿package gamerguy11.sixtoolsaddon.modules;
 
 import meteordevelopment.meteorclient.events.entity.player.StartBreakingBlockEvent;
 import meteordevelopment.meteorclient.events.render.Render3DEvent;
@@ -64,7 +64,7 @@ public class SixToolsSpeedmine extends Module {
 
     public final Setting<Boolean> autoMineOnly = sgAuto.add(new BoolSetting.Builder()
         .name("auto-mine-only")
-        .description("Ignore blocks you click yourself — only auto-mine targets get broken.")
+        .description("Ignore blocks you click yourself, only auto-mine targets get broken.")
         .defaultValue(false)
         .visible(autoMine::get)
         .build());

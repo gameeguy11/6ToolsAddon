@@ -1,4 +1,4 @@
-package com.maparts.link.capture;
+﻿package com.maparts.link.capture;
 
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
@@ -71,7 +71,7 @@ public final class MapGridCapture {
         }
 
         if (frame.getHorizontalFacing() == Direction.DOWN) {
-            return "Ceiling maparts aren't supported yet — place the maps on a wall or floor.";
+            return "Ceiling maparts aren't supported yet, place the maps on a wall or floor.";
         }
 
         return null;
@@ -220,7 +220,7 @@ public final class MapGridCapture {
 
     private static String loadTimeoutMessage(int missing) {
         return missing + " map" + (missing == 1 ? "" : "s")
-                + " didn't finish loading from the server in time — wait a moment"
+                + " didn't finish loading from the server in time, wait a moment"
                 + " (or move closer) and try again.";
     }
 
@@ -360,7 +360,7 @@ public final class MapGridCapture {
 
         if (candidates.size() > MAX_SEGMENTS) {
             return MultiResult.error(
-                    "Found " + candidates.size() + " maparts — more than the "
+                    "Found " + candidates.size() + " maparts, more than the "
                             + MAX_SEGMENTS + " per run limit. Upload sections with"
                             + " /mapselect + /mapupload instead.");
         }

@@ -1,4 +1,4 @@
-package com.maparts.link.command;
+﻿package com.maparts.link.command;
 
 import com.maparts.link.capture.FrameDataWaiter;
 import com.maparts.link.capture.MapGridCapture;
@@ -58,7 +58,7 @@ public final class MapUploadCommand {
 
         if (FrameDataWaiter.isBusy()) {
             ModChat.error(source, Text.literal(
-                    "Still processing a previous capture — wait for it to finish."));
+                    "Still processing a previous capture, wait for it to finish."));
             return 0;
         }
 
@@ -66,7 +66,7 @@ public final class MapUploadCommand {
 
         if (uploadHost == null) {
             ModChat.error(source, Text.literal(
-                    "Uploads are for 6b6t maparts — connect to 6b6t"
+                    "Uploads are for 6b6t maparts, connect to 6b6t"
                             + " (e.g. play.6b6t.org) and try again."));
             return 0;
         }
@@ -105,13 +105,13 @@ public final class MapUploadCommand {
 
             ModChat.feedback(source, Text.literal(
                     "Captured " + capture.mapsWide() + "x" + capture.mapsTall()
-                            + " mapart — uploading…").formatted(Formatting.GRAY));
+                            + " mapart, uploading…").formatted(Formatting.GRAY));
 
             BackendClient backend = new BackendClient(LinkCommand.BACKEND_URL);
 
             UploadPipeline.upload(backend, token, uploadHost, finalTitle, capture,
                             () -> client.execute(() -> ModChat.feedback(source, Text.literal(
-                                    "Upload failed — retrying in 5s…")
+                                    "Upload failed, retrying in 5s…")
                                     .formatted(Formatting.GRAY))))
                     .thenAccept(outcome -> client.execute(() -> {
                         if (outcome.success()) {
@@ -140,7 +140,7 @@ public final class MapUploadCommand {
         if (!SelectionState.hasSelection()) {
             if (SelectionState.hasPendingFirst()) {
                 ModChat.error(source, Text.literal(
-                        "Your /mapselect selection is missing its second corner —"
+                        "Your /mapselect selection is missing its second corner,"
                                 + " select it, or look at the mapart and rerun"
                                 + " /mapupload to skip selecting."));
                 callback.accept(null);
@@ -164,7 +164,7 @@ public final class MapUploadCommand {
                 || !(second instanceof ItemFrameEntity secondFrame)) {
             SelectionState.clear();
             ModChat.error(source, Text.literal(
-                    "The selected corner frames are gone (unloaded or removed) —"
+                    "The selected corner frames are gone (unloaded or removed),"
                             + " reselect with /mapselect."));
             callback.accept(null);
             return;

@@ -1,4 +1,4 @@
-package com.maparts.link.command;
+﻿package com.maparts.link.command;
 
 import com.maparts.link.config.TokenStore;
 import com.maparts.link.http.BackendClient;
@@ -60,10 +60,10 @@ public final class LinkCommand {
                     }
 
                     String instruction = result.passwordSetupRequired()
-                            ? "Almost done — open 6bMapArts in your browser (the"
+                            ? "Almost done, open 6bMapArts in your browser (the"
                                     + " tab you got the code in) and CREATE a"
                                     + " password to finish."
-                            : "Almost done — open 6bMapArts in your browser and"
+                            : "Almost done, open 6bMapArts in your browser and"
                                     + " ENTER your password to finish.";
                     ModChat.feedback(source, Text.literal(instruction).formatted(Formatting.YELLOW));
                     ModChat.feedback(source, Links.prefixedLink(
@@ -110,9 +110,9 @@ public final class LinkCommand {
         String name = mcName != null ? mcName : username;
         String message = created
                 ? "Account created and linked as " + name
-                        + " — you're signed in on the website."
+                        + ", you're signed in on the website."
                 : "Welcome back, " + name
-                        + " — you're signed in on the website.";
+                        + ", you're signed in on the website.";
         ModChat.feedback(source, Text.literal(message).formatted(Formatting.GREEN));
         ModChat.feedback(source, Text.literal(
                 "Upload maparts with /mapselect (two corners) +"
