@@ -7,26 +7,31 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import meteordevelopment.meteorclient.gui.GuiTheme;
+import meteordevelopment.meteorclient.gui.widgets.WLabel;
 import meteordevelopment.meteorclient.gui.widgets.WWidget;
 import meteordevelopment.meteorclient.gui.widgets.containers.WHorizontalList;
+import meteordevelopment.meteorclient.gui.widgets.containers.WVerticalList;
 import meteordevelopment.meteorclient.gui.widgets.pressable.WButton;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.util.Util;
+import meteordevelopment.meteorclient.events.game.GameJoinedEvent;
+import meteordevelopment.meteorclient.events.game.GameLeftEvent;
 import meteordevelopment.meteorclient.events.game.ReceiveMessageEvent;
 import meteordevelopment.meteorclient.events.packets.PacketEvent;
 import meteordevelopment.meteorclient.events.world.TickEvent;
+import meteordevelopment.meteorclient.settings.BlockPosSetting;
 import meteordevelopment.meteorclient.settings.BoolSetting;
 import meteordevelopment.meteorclient.settings.DoubleSetting;
-import meteordevelopment.meteorclient.settings.EnumSetting;
 import meteordevelopment.meteorclient.settings.IntSetting;
 import meteordevelopment.meteorclient.settings.Setting;
 import meteordevelopment.meteorclient.settings.StringListSetting;
@@ -35,26 +40,35 @@ import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.Utils;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
 import meteordevelopment.orbit.EventHandler;
+import net.minecraft.client.gui.screen.multiplayer.ConnectScreen;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.TitleScreen;
+import net.minecraft.client.gui.screen.world.LevelLoadingScreen;
+import net.minecraft.client.network.ServerAddress;
+import net.minecraft.client.network.ServerInfo;
 import net.minecraft.enchantment.Enchantments;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.vehicle.BoatEntity;
+import net.minecraft.entity.vehicle.ChestBoatEntity;
 import net.minecraft.entity.projectile.FishingBobberEntity;
 import net.minecraft.item.FishingRodItem;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.packet.s2c.play.PlaySoundFromEntityS2CPacket;
 import net.minecraft.network.packet.s2c.play.PlaySoundS2CPacket;
 import net.minecraft.registry.tag.FluidTags;
+import meteordevelopment.meteorclient.utils.player.Rotations;
 import net.minecraft.util.Hand;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.RaycastContext;
 
 public class SixToolsAutoFish extends Module {
     private static final String DISPLAY_TITLE = "6Tools AutoFish";
-    private static final Path FISH_DIR = FabricLoader.getInstance().getConfigDir().resolve("sixtoolsaddon").resolve("FishLogs");
-    private static final Path FISH_FILE = FISH_DIR.resolve("MyFish.html");
     private static final Pattern CAUGHT_PATTERN = Pattern.compile("You caught an? (.+?): ([0-9]+(?:[.,][0-9]+)?) cm", Pattern.CASE_INSENSITIVE);
     private static final String NO_FISH_MESSAGE = "no more fish in this area";
     private static final String RECAST_MESSAGE = "move or look around before casting again";
@@ -75,352 +89,640 @@ public class SixToolsAutoFish extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
     private final SettingGroup sgMovement = settings.createGroup("Movement");
     private final SettingGroup sgDetection = settings.createGroup("Detection");
-    private final SettingGroup sgFish = settings.createGroup("My Fish");
+    private final SettingGroup sgFish = settings.createGroup("Fish Stats");
+    private final SettingGroup sgRecovery = settings.createGroup("Recovery");
     private final SettingGroup sgNotify = settings.createGroup("Notifications");
+    private final SettingGroup sgNoBoats = settings.createGroup("No Boats Around");
 
-
-    private final Setting<Boolean> silent = sgNotify.add(new BoolSetting.Builder()
-        .name("silent")
-        .description("Master switch: turns off every Auto Fish chat message below (and debug).")
-        .defaultValue(false)
-        .build()
+    private final Setting<Boolean> silentNormal = sgNotify.add(new BoolSetting.Builder()
+            .name("silent")
+            .description("Master switch: turns off every Auto Fish chat message below (and debug).")
+            .defaultValue(false)
+            .build()
     );
 
-    private final Setting<Boolean> notifyNoRod = sgNotify.add(new BoolSetting.Builder()
-        .name("notify-no-rod")
-        .description("Tells you when there is no fishing rod in your hand or hotbar.")
-        .defaultValue(true)
-        .build()
+    private final Setting<Boolean> notifyNoRodNormal = sgNotify.add(new BoolSetting.Builder()
+            .name("notify-no-rod")
+            .description("Tells you when there is no fishing rod in your hand or hotbar.")
+            .defaultValue(true)
+            .build()
     );
 
-    private final Setting<Boolean> notifyIdleReset = sgNotify.add(new BoolSetting.Builder()
-        .name("notify-idle-reset")
-        .description("Tells you when Auto Fish was idle for a while and reset itself.")
-        .defaultValue(true)
-        .build()
+    private final Setting<Boolean> notifyIdleResetNormal = sgNotify.add(new BoolSetting.Builder()
+            .name("notify-idle-reset")
+            .description("Tells you when Auto Fish was idle for a while and reset itself.")
+            .defaultValue(true)
+            .build()
     );
 
-    private final Setting<Boolean> notifyCastBlocked = sgNotify.add(new BoolSetting.Builder()
-        .name("notify-cast-blocked")
-        .description("Tells you when it will not cast because the bobber would land off the water or too close to the boat.")
-        .defaultValue(true)
-        .build()
+    private final Setting<Boolean> notifyCastBlockedNormal = sgNotify.add(new BoolSetting.Builder()
+            .name("notify-cast-blocked")
+            .description("Tells you when it will not cast because the bobber would land off the water or too close to the boat.")
+            .defaultValue(true)
+            .build()
     );
 
-    private final Setting<Boolean> notifySpot = sgNotify.add(new BoolSetting.Builder()
-        .name("notify-hook-move")
-        .description("Tells you when the bobber could not be moved to open water.")
-        .defaultValue(true)
-        .build()
+    private final Setting<Boolean> notifySpotNormal = sgNotify.add(new BoolSetting.Builder()
+            .name("notify-hook-move")
+            .description("Tells you when the bobber could not be moved to open water.")
+            .defaultValue(true)
+            .build()
     );
 
-    private final Setting<Boolean> notifyErrors = sgNotify.add(new BoolSetting.Builder()
-        .name("notify-errors")
-        .description("Tells you when saving or opening the fish file fails.")
-        .defaultValue(true)
-        .build()
+    private final Setting<Boolean> notifyErrorsNormal = sgNotify.add(new BoolSetting.Builder()
+            .name("notify-errors")
+            .description("Tells you when saving or opening the fish file fails.")
+            .defaultValue(true)
+            .build()
     );
 
     private final Setting<Boolean> trackStats = sgFish.add(new BoolSetting.Builder()
-        .name("track-stats")
-        .description("Counts every catch by rarity and writes FishStats.html every 30 seconds. Use the Fish stats button to open it.")
-        .defaultValue(true)
-        .build()
+            .name("track-stats")
+            .description("Counts every catch by rarity and writes FishStats.html every 30 seconds. Use the Fish stats button to open it.")
+            .defaultValue(true)
+            .build()
     );
 
     private final Setting<Integer> statsInterval = sgFish.add(new IntSetting.Builder()
-        .name("stats-update-interval")
-        .description("How often (seconds) FishStats.html is rewritten and refreshed.")
-        .defaultValue(30)
-        .min(5)
-        .sliderMin(5)
-        .sliderMax(600)
-        .visible(trackStats::get)
-        .build()
+            .name("stats-update-interval")
+            .description("How often (seconds) FishStats.html is rewritten and refreshed.")
+            .defaultValue(30)
+            .min(5)
+            .sliderMin(5)
+            .sliderMax(600)
+            .visible(trackStats::get)
+            .build()
     );
 
     private final Setting<Boolean> scanLaunchers = sgFish.add(new BoolSetting.Builder()
-        .name("scan-launchers")
-        .description("Import also looks for logs of other Minecraft instances (default folder, Prism, MultiMC, Modrinth, CurseForge).")
-        .defaultValue(true)
-        .visible(trackStats::get)
-        .build()
+            .name("scan-launchers")
+            .description("Import also looks for logs of other Minecraft instances (default folder, Prism, MultiMC, Modrinth, CurseForge).")
+            .defaultValue(true)
+            .visible(trackStats::get)
+            .build()
     );
 
     private final Setting<java.util.List<String>> extraLogFolders = sgFish.add(new StringListSetting.Builder()
-        .name("extra-log-folders")
-        .description("Extra folders with Minecraft logs to import (the folder itself or its parent of a logs folder).")
-        .defaultValue(new ArrayList<>())
-        .visible(trackStats::get)
-        .build()
+            .name("extra-log-folders")
+            .description("Extra folders with Minecraft logs to import (the folder itself or its parent of a logs folder).")
+            .defaultValue(new ArrayList<>())
+            .visible(trackStats::get)
+            .build()
     );
 
     private final Setting<Integer> serverTotal = sgFish.add(new IntSetting.Builder()
-        .name("server-total")
-        .description("Your total fish shown by the server (leaderboard). The stats page shows how many are missing from the logs. 0 = off.")
-        .defaultValue(0)
-        .min(0)
-        .sliderMin(0)
-        .sliderMax(20000)
-        .visible(trackStats::get)
-        .build()
+            .name("server-total")
+            .description("Your total fish shown by the server (leaderboard). The stats page shows how many are missing from the logs. 0 = off.")
+            .defaultValue(0)
+            .min(0)
+            .sliderMin(0)
+            .sliderMax(20000)
+            .visible(trackStats::get)
+            .build()
     );
 
-    private final Setting<Boolean> saveFish = sgFish.add(new BoolSetting.Builder()
-        .name("save-fish")
-        .description("Saves big catches to an HTML file. Use the My fish button to open it.")
-        .defaultValue(true)
-        .build()
+    private final Setting<Boolean> detectFlagNormal = sgDetection.add(new BoolSetting.Builder()
+            .name("detect-flag")
+            .description("Bite signal: the bobber's own fish-caught flag.")
+            .defaultValue(true)
+            .build()
     );
 
-    private final Setting<Double> minFishSize = sgFish.add(new DoubleSetting.Builder()
-        .name("min-fish-size")
-        .description("Only fish at least this long (cm) are saved.")
-        .defaultValue(100.0)
-        .min(100)
-        .sliderMin(100)
-        .sliderMax(10000)
-        .visible(saveFish::get)
-        .build()
+    private final Setting<Boolean> detectSoundNormal = sgDetection.add(new BoolSetting.Builder()
+            .name("detect-sound")
+            .description("Bite signal: the bobber splash sound played near your bobber.")
+            .defaultValue(true)
+            .build()
     );
 
-    private final Setting<Boolean> detectFlag = sgDetection.add(new BoolSetting.Builder()
-        .name("detect-flag")
-        .description("Bite signal: the bobber's own fish-caught flag.")
-        .defaultValue(true)
-        .build()
+    private final Setting<Boolean> detectDipNormal = sgDetection.add(new BoolSetting.Builder()
+            .name("detect-dip")
+            .description("Bite signal: the bobber suddenly moves down.")
+            .defaultValue(true)
+            .build()
     );
 
-    private final Setting<Boolean> detectSound = sgDetection.add(new BoolSetting.Builder()
-        .name("detect-sound")
-        .description("Bite signal: the bobber splash sound played near your bobber.")
-        .defaultValue(true)
-        .build()
+    private final Setting<Double> dipThresholdNormal = sgDetection.add(new DoubleSetting.Builder()
+            .name("dip-threshold")
+            .description("How far (blocks) the bobber must drop in one tick to count as a bite.")
+            .defaultValue(0.12)
+            .min(0.03)
+            .sliderMax(0.5)
+            .visible(detectDipNormal::get)
+            .build()
     );
 
-    private final Setting<Boolean> detectDip = sgDetection.add(new BoolSetting.Builder()
-        .name("detect-dip")
-        .description("Bite signal: the bobber suddenly moves down.")
-        .defaultValue(true)
-        .build()
+    private final Setting<Integer> retryIntervalNormal = sgDetection.add(new IntSetting.Builder()
+            .name("retry-interval")
+            .description("Ticks between reel-in retries while the bobber is still out after a bite.")
+            .defaultValue(20)
+            .min(5)
+            .sliderMax(60)
+            .build()
     );
 
-    private final Setting<Double> dipThreshold = sgDetection.add(new DoubleSetting.Builder()
-        .name("dip-threshold")
-        .description("How far (blocks) the bobber must drop in one tick to count as a bite.")
-        .defaultValue(0.12)
-        .min(0.03)
-        .sliderMax(0.5)
-        .visible(detectDip::get)
-        .build()
+    private final Setting<Integer> maxRetriesNormal = sgDetection.add(new IntSetting.Builder()
+            .name("max-retries")
+            .description("How many times to retry reeling in the same bobber.")
+            .defaultValue(5)
+            .min(0)
+            .sliderMax(20)
+            .build()
     );
 
-    private final Setting<Integer> retryInterval = sgDetection.add(new IntSetting.Builder()
-        .name("retry-interval")
-        .description("Ticks between reel-in retries while the bobber is still out after a bite.")
-        .defaultValue(20)
-        .min(5)
-        .sliderMax(60)
-        .build()
+    private final Setting<Integer> recastTimeoutNormal = sgDetection.add(new IntSetting.Builder()
+            .name("recast-timeout")
+            .description("Ticks a bobber may stay out without a detected bite before it is reeled in and cast again. 0 disables.")
+            .defaultValue(600)
+            .min(0)
+            .sliderMax(1200)
+            .build()
     );
 
-    private final Setting<Integer> maxRetries = sgDetection.add(new IntSetting.Builder()
-        .name("max-retries")
-        .description("How many times to retry reeling in the same bobber.")
-        .defaultValue(5)
-        .min(0)
-        .sliderMax(20)
-        .build()
+    private final Setting<Boolean> debugNormal = sgNotify.add(new BoolSetting.Builder()
+            .name("debug")
+            .description("Prints in chat which bite signal fired.")
+            .defaultValue(false)
+            .build()
     );
 
-    private final Setting<Integer> recastTimeout = sgDetection.add(new IntSetting.Builder()
-        .name("recast-timeout")
-        .description("Ticks a bobber may stay out without a detected bite before it is reeled in and cast again. 0 disables.")
-        .defaultValue(600)
-        .min(0)
-        .sliderMax(1200)
-        .build()
+    private final Setting<Boolean> autoSwitchNormal = sgGeneral.add(new BoolSetting.Builder()
+            .name("auto-switch")
+            .description("Automatically switch to a fishing rod.")
+            .defaultValue(true)
+            .build()
     );
 
-    private final Setting<Boolean> debug = sgNotify.add(new BoolSetting.Builder()
-        .name("debug")
-        .description("Prints in chat which bite signal fired.")
-        .defaultValue(false)
-        .build()
+    private final Setting<Boolean> antiBreakNormal = sgGeneral.add(new BoolSetting.Builder()
+            .name("anti-break")
+            .description("Avoid using rods that would break if they were cast.")
+            .defaultValue(false)
+            .build()
     );
 
-    private final Setting<Boolean> autoSwitch = sgGeneral.add(new BoolSetting.Builder()
-        .name("auto-switch")
-        .description("Automatically switch to a fishing rod.")
-        .defaultValue(true)
-        .build()
+    private final Setting<Boolean> autoCastNormal = sgGeneral.add(new BoolSetting.Builder()
+            .name("auto-cast")
+            .description("Automatically cast the fishing rod.")
+            .defaultValue(true)
+            .build()
     );
 
-    private final Setting<Boolean> antiBreak = sgGeneral.add(new BoolSetting.Builder()
-        .name("anti-break")
-        .description("Avoid using rods that would break if they were cast.")
-        .defaultValue(false)
-        .build()
+    private final Setting<Boolean> waterOnlyNormal = sgGeneral.add(new BoolSetting.Builder()
+            .name("water-only")
+            .description("Only casts when you are aiming at water.")
+            .defaultValue(true)
+            .build()
     );
 
-    private final Setting<Boolean> autoCast = sgGeneral.add(new BoolSetting.Builder()
-        .name("auto-cast")
-        .description("Automatically cast the fishing rod.")
-        .defaultValue(true)
-        .build()
+    private final Setting<Integer> waterRangeNormal = sgGeneral.add(new IntSetting.Builder()
+            .name("water-range")
+            .description("How far ahead of you the water has to be to cast.")
+            .defaultValue(10)
+            .min(2)
+            .sliderMax(30)
+            .visible(waterOnlyNormal::get)
+            .build()
     );
 
-    private final Setting<Boolean> waterOnly = sgGeneral.add(new BoolSetting.Builder()
-        .name("water-only")
-        .description("Only casts when you are aiming at water.")
-        .defaultValue(true)
-        .build()
+    private final Setting<Boolean> customCastPitchNormal = sgGeneral.add(new BoolSetting.Builder()
+            .name("custom-cast-pitch")
+            .description("Sets your look angle before each cast to control how far the bobber lands.")
+            .defaultValue(false)
+            .build()
     );
 
-    private final Setting<Integer> waterRange = sgGeneral.add(new IntSetting.Builder()
-        .name("water-range")
-        .description("How far ahead of you the water has to be to cast.")
-        .defaultValue(10)
-        .min(2)
-        .sliderMax(30)
-        .visible(waterOnly::get)
-        .build()
-    );
-
-    private final Setting<Boolean> customCastPitch = sgGeneral.add(new BoolSetting.Builder()
-        .name("custom-cast-pitch")
-        .description("Sets your look angle before each cast to control how far the bobber lands.")
-        .defaultValue(false)
-        .build()
-    );
-
-    private final Setting<Double> castPitch = sgGeneral.add(new DoubleSetting.Builder()
-        .name("cast-pitch")
-        .description("Look angle used for casting. 0 is level (farthest cast), 90 is straight down (bobber drops at your feet).")
-        .defaultValue(0.0)
-        .min(-90)
-        .max(90)
-        .sliderMin(-30)
-        .sliderMax(90)
-        .visible(customCastPitch::get)
-        .build()
+    private final Setting<Double> castPitchNormal = sgGeneral.add(new DoubleSetting.Builder()
+            .name("cast-pitch")
+            .description("Look angle used for casting. 0 is level (farthest cast), 90 is straight down (bobber drops at your feet).")
+            .defaultValue(0.0)
+            .min(-90)
+            .max(90)
+            .sliderMin(-30)
+            .sliderMax(90)
+            .visible(customCastPitchNormal::get)
+            .build()
     );
 
     private final Setting<Boolean> avoidBoat = sgGeneral.add(new BoolSetting.Builder()
-        .name("avoid-boat")
-        .description("Does not cast when the bobber would land closer than min-cast-distance to the boat.")
-        .defaultValue(false)
-        .build()
+            .name("avoid-boat")
+            .description("Does not cast when the bobber would land closer than min-cast-distance to the boat.")
+            .defaultValue(false)
+            .build()
     );
 
     private final Setting<Double> minCastDistance = sgGeneral.add(new DoubleSetting.Builder()
-        .name("min-cast-distance")
-        .description("Minimum blocks between the boat and where the bobber lands. Measured from the simulated landing spot, not from where you look.")
-        .defaultValue(6.0)
-        .min(2.0)
-        .sliderMax(14.0)
-        .visible(avoidBoat::get)
-        .build()
+            .name("min-cast-distance")
+            .description("Minimum blocks between the boat and where the bobber lands. Measured from the simulated landing spot, not from where you look.")
+            .defaultValue(6.0)
+            .min(2.0)
+            .sliderMax(14.0)
+            .visible(avoidBoat::get)
+            .build()
     );
 
-    private final Setting<Boolean> autoAim = sgGeneral.add(new BoolSetting.Builder()
-        .name("auto-aim")
-        .description("When the cast would land too close to the boat or off the water, adjusts pitch (and turns a little if needed) to a valid spot instead of waiting. Stops the module from stalling when the aim drifts onto land.")
-        .defaultValue(true)
-        .build()
+    private final Setting<Boolean> autoAimNormal = sgGeneral.add(new BoolSetting.Builder()
+            .name("auto-aim")
+            .description("When the cast would land too close to the boat or off the water, adjusts pitch (and turns a little if needed) to a valid spot instead of waiting. Stops the module from stalling when the aim drifts onto land.")
+            .defaultValue(true)
+            .build()
     );
 
-    private final Setting<Boolean> lookAround = sgMovement.add(new BoolSetting.Builder()
-        .name("look-around")
-        .description("Turns the camera a little, once, when the server says to move or look around before casting again. It swings back and forth so the aim does not drift. The boat does not move.")
-        .defaultValue(true)
-        .build()
+    private final Setting<Boolean> lookAroundNormal = sgMovement.add(new BoolSetting.Builder()
+            .name("look-around")
+            .description("Turns the camera a little, once, when the server says to move or look around before casting again. It swings back and forth so the aim does not drift. The boat does not move.")
+            .defaultValue(true)
+            .build()
     );
 
-    private final Setting<Double> lookAroundDegrees = sgMovement.add(new DoubleSetting.Builder()
-        .name("look-around-degrees")
-        .description("How far the camera turns each time.")
-        .defaultValue(67.838)
-        .min(2.0)
-        .sliderMax(90.0)
-        .build()
+    private final Setting<Double> lookAroundDegreesNormal = sgMovement.add(new DoubleSetting.Builder()
+            .name("look-around-degrees")
+            .description("How far the camera turns each time.")
+            .defaultValue(67.838)
+            .min(2.0)
+            .sliderMax(90.0)
+            .build()
     );
 
-    private final Setting<Boolean> lookAfterCatch = sgMovement.add(new BoolSetting.Builder()
-        .name("look-after-catch")
-        .description("Turns the camera a little after every catch. The boat stays where it is. This shifts where the bobber lands, so it is off by default.")
-        .defaultValue(true)
-        .build()
+    private final Setting<Boolean> lookAfterCatchNormal = sgMovement.add(new BoolSetting.Builder()
+            .name("look-after-catch")
+            .description("Turns the camera a little after every catch. The boat stays where it is. This shifts where the bobber lands, so it is off by default.")
+            .defaultValue(true)
+            .build()
     );
 
-    private final Setting<Boolean> moveHookOnNoFish = sgMovement.add(new BoolSetting.Builder()
-        .name("move-hook-on-no-fish")
-        .description("When the chat says there are no more fish in this area, reels in and casts the bobber about hook-move-distance + 1 blocks away along X or Z where there is water, and keeps fishing there. When the message comes again it goes back to the spot it left, then picks a new random side. The boat does not move.")
-        .defaultValue(true)
-        .build()
+    private final Setting<Boolean> moveHookOnNoFishNormal = sgMovement.add(new BoolSetting.Builder()
+            .name("move-hook-on-no-fish")
+            .description("When the chat says there are no more fish in this area, reels in and casts the bobber about hook-move-distance + 1 blocks away along X or Z where there is water, and keeps fishing there. When the message comes again it goes back to the spot it left, then picks a new random side. The boat does not move.")
+            .defaultValue(true)
+            .build()
     );
 
-    private final Setting<Integer> hookMoveDistance = sgMovement.add(new IntSetting.Builder()
-        .name("hook-move-distance")
-        .description("Minimum blocks between the old and the new bobber position.")
-        .defaultValue(3)
-        .min(3)
-        .sliderMax(10)
-        .visible(moveHookOnNoFish::get)
-        .build()
+    private final Setting<Integer> hookMoveDistanceNormal = sgMovement.add(new IntSetting.Builder()
+            .name("hook-move-distance")
+            .description("Minimum blocks between the old and the new bobber position.")
+            .defaultValue(3)
+            .min(3)
+            .sliderMax(10)
+            .visible(moveHookOnNoFishNormal::get)
+            .build()
+    );
+
+    private final Setting<Boolean> randomizeHookSpotNormal = sgMovement.add(new BoolSetting.Builder()
+            .name("randomize-hook-spot")
+            .description("Every cast goes to a random spot on the water (random direction and distance) instead of turning back and forth between the same two spots. The cast path is checked so the bobber never flies into a block, it only lands in water and it never goes back to a spot used recently. After a no-more-fish message the new spot is at least hook-move-distance away (up to hook-move-max-distance + 1). Turns itself on when the bobber hooked an entity more than hooks-before-random times, until you reconnect.")
+            .defaultValue(false)
+            .build()
+    );
+
+    private final Setting<Integer> hookMoveMaxDistanceNormal = sgMovement.add(new IntSetting.Builder()
+            .name("hook-move-max-distance")
+            .description("Farthest the randomized spot may be from the old bobber position (blocks). It is also limited by your cast range.")
+            .defaultValue(8)
+            .min(3)
+            .sliderMax(14)
+            .visible(() -> moveHookOnNoFishNormal.get() && randomizeHookSpotNormal.get())
+            .build()
+    );
+
+    private final Setting<Integer> hooksBeforeRandomNormal = sgMovement.add(new IntSetting.Builder()
+            .name("hooks-before-random")
+            .description("When the bobber hooked an entity (boat, player, mob) more than this many times, the spot randomizer turns on at 100% until you reconnect.")
+            .defaultValue(3)
+            .min(1)
+            .sliderMax(10)
+            .build()
     );
 
     private final Setting<Boolean> idleMove = sgMovement.add(new BoolSetting.Builder()
-        .name("idle-move")
-        .description("Drives the boat a short way when you have not caught anything for a long time. Until then it stays in place.")
-        .defaultValue(true)
-        .build()
+            .name("idle-move")
+            .description("Drives the boat a short way when you have not caught anything for a long time. Until then it stays in place.")
+            .defaultValue(true)
+            .build()
     );
 
     private final Setting<Integer> idleMoveTime = sgMovement.add(new IntSetting.Builder()
-        .name("idle-move-time")
-        .description("Seconds without a catch before the boat moves.")
-        .defaultValue(302)
-        .min(30)
-        .sliderMax(900)
-        .visible(idleMove::get)
-        .build()
+            .name("idle-move-time")
+            .description("Seconds without a catch before the boat moves.")
+            .defaultValue(302)
+            .min(30)
+            .sliderMax(900)
+            .visible(idleMove::get)
+            .build()
     );
 
     private final Setting<Integer> idleMoveDistance = sgMovement.add(new IntSetting.Builder()
-        .name("idle-move-distance")
-        .description("Blocks the boat drives when it has not caught anything for a long time.")
-        .defaultValue(3)
-        .min(3)
-        .sliderMax(10)
-        .visible(idleMove::get)
-        .build()
+            .name("idle-move-distance")
+            .description("Blocks the boat drives when it has not caught anything for a long time.")
+            .defaultValue(3)
+            .min(3)
+            .sliderMax(10)
+            .visible(idleMove::get)
+            .build()
     );
 
     private final Setting<Integer> edgeMargin = sgMovement.add(new IntSetting.Builder()
-        .name("edge-margin")
-        .description("The boat moves forward, back, left or right at random, but only to a spot with at least this many blocks of open water on every side. Keeps it in the middle of the pond.")
-        .defaultValue(4)
-        .min(2)
-        .max(8)
-        .visible(idleMove::get)
-        .build()
+            .name("edge-margin")
+            .description("The boat moves forward, back, left or right at random, but only to a spot with at least this many blocks of open water on every side. Keeps it in the middle of the pond.")
+            .defaultValue(4)
+            .min(2)
+            .max(8)
+            .visible(idleMove::get)
+            .build()
     );
 
     private final Setting<Boolean> stayInWater = sgMovement.add(new BoolSetting.Builder()
-        .name("stay-in-water")
-        .description("Stops moving before the boat would leave the water.")
-        .defaultValue(true)
-        .visible(idleMove::get)
-        .build()
+            .name("stay-in-water")
+            .description("Stops moving before the boat would leave the water.")
+            .defaultValue(true)
+            .visible(idleMove::get)
+            .build()
     );
 
     private final Setting<Boolean> boatAdvice = sgNotify.add(new BoolSetting.Builder()
-        .name("boat-advice")
-        .description("Tells you in chat to sit in a boat when you fish without one. Turn it off to stop the reminder.")
-        .defaultValue(true)
-        .build()
+            .name("boat-advice")
+            .description("Tells you in chat to sit in a boat when you fish without one. Turn it off to stop the reminder.")
+            .defaultValue(true)
+            .build()
     );
+
+    private final Setting<Boolean> notifyRecoveryNormal = sgNotify.add(new BoolSetting.Builder()
+            .name("notify-recovery")
+            .description("Tells you in chat about reconnecting, navigating to the saved position and finding a boat. Messages are sent once per step, not every tick.")
+            .defaultValue(true)
+            .build()
+    );
+
+    private final Setting<Boolean> autoReconnectNormal = sgRecovery.add(new BoolSetting.Builder()
+            .name("auto-reconnect")
+            .description("Reconnects to the same server after a disconnect, goes to the saved position, gets into a boat and only then fishes again. Turning the module off cancels all of it.")
+            .defaultValue(true)
+            .build()
+    );
+
+    private final Setting<Integer> reconnectDelayNormal = sgRecovery.add(new IntSetting.Builder()
+            .name("reconnect-delay")
+            .description("Seconds to wait before reconnecting. It doubles (up to 2 minutes) after every failed attempt or very short session.")
+            .defaultValue(5)
+            .min(1)
+            .sliderMin(1)
+            .sliderMax(60)
+            .visible(autoReconnectNormal::get)
+            .build()
+    );
+
+    private final Setting<Integer> maxReconnectAttemptsNormal = sgRecovery.add(new IntSetting.Builder()
+            .name("max-reconnect-attempts")
+            .description("Gives up after this many failed reconnects (or disconnects within 30 seconds of joining) in a row. 0 = never give up.")
+            .defaultValue(20)
+            .min(0)
+            .sliderMax(50)
+            .visible(autoReconnectNormal::get)
+            .build()
+    );
+
+    private final Setting<Boolean> ignoreManualDisconnectNormal = sgRecovery.add(new BoolSetting.Builder()
+            .name("ignore-manual-disconnect")
+            .description("Does not reconnect when you leave with the Disconnect button (only kicks, timeouts and lost connections trigger it).")
+            .defaultValue(true)
+            .visible(autoReconnectNormal::get)
+            .build()
+    );
+
+    private final Setting<Boolean> fishWithoutBoat = sgRecovery.add(new BoolSetting.Builder()
+            .name("fish-without-boat")
+            .description("When no empty boat could be entered within boat-timeout, start fishing from the saved position anyway instead of stopping.")
+            .defaultValue(true)
+            .build()
+    );
+
+    private final Setting<Boolean> destinationSetNormal = sgRecovery.add(new BoolSetting.Builder()
+            .name("destination-set")
+            .description("Whether a recovery position is saved. Use the Set position / Clear position buttons at the top of this module's window.")
+            .defaultValue(false)
+            .build()
+    );
+
+    private final Setting<BlockPos> destinationNormal = sgRecovery.add(new BlockPosSetting.Builder()
+            .name("destination")
+            .description("Position walked to after reconnecting when no recorded path exists (saved by the Set position button, or set to the end of a recorded path). The dimension is not stored.")
+            .defaultValue(new BlockPos(0, 64, 0))
+            .visible(destinationSetNormal::get)
+            .build()
+    );
+
+    private final Setting<Integer> navigationTimeoutNormal = sgRecovery.add(new IntSetting.Builder()
+            .name("navigation-timeout")
+            .description("Seconds the walk back to the saved position may take before recovery gives up. 0 = no limit.")
+            .defaultValue(120)
+            .min(0)
+            .sliderMax(600)
+            .build()
+    );
+
+    private final Setting<Double> boatSearchRadius = sgRecovery.add(new DoubleSetting.Builder()
+            .name("boat-search-radius")
+            .description("Blocks around you (in 3D, so above and below count) to look for an empty boat.")
+            .defaultValue(10.0)
+            .min(2.0)
+            .sliderMax(32.0)
+            .build()
+    );
+
+    private final Setting<Integer> searchIntervalSeconds = sgRecovery.add(new IntSetting.Builder()
+            .name("boat-search-interval")
+            .description("Seconds between boat searches while none is found.")
+            .defaultValue(3)
+            .min(1)
+            .sliderMax(30)
+            .build()
+    );
+
+    private final Setting<Integer> boatTimeout = sgRecovery.add(new IntSetting.Builder()
+            .name("boat-timeout")
+            .description("Seconds to look for an empty boat at the saved position. When none could be entered in that time, it acts as set by fish-without-boat. 0 = keep searching forever.")
+            .defaultValue(40)
+            .min(0)
+            .sliderMax(1800)
+            .build()
+    );
+
+    private final Setting<Boolean> noBoatsAround = sgNoBoats.add(new BoolSetting.Builder()
+            .name("no-boats-around")
+            .description("Made it because OG_Miru and his boyfriend zboi think they own smt. Fish from land. While on, every boat feature is ignored (avoid-boat, idle-move, boat advice, boat search) and the General, Movement, Detection, Notifications and Recovery settings above are ignored too: only the settings in this section are used. Relogging, walking back to the saved position and fish logging still work, with their own saved position / recorded path.")
+            .defaultValue(false)
+            .build()
+    );
+
+    private Setting<Boolean> nbBool(String name, String description, boolean def, java.util.function.BooleanSupplier extra) {
+        return sgNoBoats.add(new BoolSetting.Builder()
+                .name(name)
+                .description(description)
+                .defaultValue(def)
+                .visible(() -> noBoatsAround.get() && (extra == null || extra.getAsBoolean()))
+                .build());
+    }
+
+    private Setting<Integer> nbInt(String name, String description, int def, int min, int sliderMax, java.util.function.BooleanSupplier extra) {
+        return sgNoBoats.add(new IntSetting.Builder()
+                .name(name)
+                .description(description)
+                .defaultValue(def)
+                .min(min)
+                .sliderMin(min)
+                .sliderMax(sliderMax)
+                .visible(() -> noBoatsAround.get() && (extra == null || extra.getAsBoolean()))
+                .build());
+    }
+
+    private Setting<Double> nbDouble(String name, String description, double def, double min, double sliderMax, java.util.function.BooleanSupplier extra) {
+        return sgNoBoats.add(new DoubleSetting.Builder()
+                .name(name)
+                .description(description)
+                .defaultValue(def)
+                .min(min)
+                .sliderMax(sliderMax)
+                .visible(() -> noBoatsAround.get() && (extra == null || extra.getAsBoolean()))
+                .build());
+    }
+
+    private final Setting<Boolean> nbAutoSwitch = nbBool("nb-auto-switch", "Automatically switch to a fishing rod.", true, null);
+    private final Setting<Boolean> nbAntiBreak = nbBool("nb-anti-break", "Avoid using rods that would break if they were cast.", false, null);
+    private final Setting<Boolean> nbAutoCast = nbBool("nb-auto-cast", "Automatically cast the fishing rod.", true, null);
+    private final Setting<Boolean> nbWaterOnly = nbBool("nb-water-only", "Only casts when you are aiming at water.", true, null);
+    private final Setting<Integer> nbWaterRange = nbInt("nb-water-range", "How far ahead of you the water has to be to cast.", 10, 2, 30, () -> nbWaterOnly.get());
+    private final Setting<Boolean> nbCustomCastPitch = nbBool("nb-custom-cast-pitch", "Sets your look angle before each cast to control how far the bobber lands.", false, null);
+    private final Setting<Double> nbCastPitch = sgNoBoats.add(new DoubleSetting.Builder()
+            .name("nb-cast-pitch")
+            .description("Look angle used for casting. 0 is level (farthest cast), 90 is straight down (bobber drops at your feet).")
+            .defaultValue(0.0)
+            .min(-90)
+            .max(90)
+            .sliderMin(-30)
+            .sliderMax(90)
+            .visible(() -> noBoatsAround.get() && nbCustomCastPitch.get())
+            .build()
+    );
+    private final Setting<Boolean> nbAutoAim = nbBool("nb-auto-aim", "When the cast would land off the water, adjusts pitch (and turns a little if needed) to a valid water spot instead of waiting. Looks for the nearest water around you, since you are not on the water.", true, null);
+
+    private final Setting<Boolean> nbLookAround = nbBool("nb-look-around", "Turns the camera a little, once, when the server says to move or look around before casting again. It swings back and forth so the aim does not drift.", true, null);
+    private final Setting<Double> nbLookAroundDegrees = nbDouble("nb-look-around-degrees", "How far the camera turns each time.", 67.838, 2.0, 90.0, null);
+    private final Setting<Boolean> nbLookAfterCatch = nbBool("nb-look-after-catch", "Turns the camera a little after every catch. This shifts where the bobber lands.", true, null);
+    private final Setting<Boolean> nbMoveHookOnNoFish = nbBool("nb-move-hook-on-no-fish", "When the chat says there are no more fish in this area, reels in and casts the bobber about nb-hook-move-distance + 1 blocks away along X or Z where there is water, and keeps fishing there. When the message comes again it goes back to the spot it left, then picks a new random side. You do not move.", true, null);
+    private final Setting<Integer> nbHookMoveDistance = nbInt("nb-hook-move-distance", "Minimum blocks between the old and the new bobber position.", 3, 3, 10, () -> nbMoveHookOnNoFish.get());
+    private final Setting<Boolean> nbRandomizeHookSpot = nbBool("nb-randomize-hook-spot", "Every cast goes to a random spot on the water (random direction and distance) instead of turning back and forth between the same two spots. The cast path is checked so the bobber never flies into a block, it only lands in water and it never goes back to a spot used recently. After a no-more-fish message the new spot is at least nb-hook-move-distance away (up to nb-hook-move-max-distance + 1). Turns itself on when the bobber hooked an entity more than hooks-before-random times, until you reconnect.", false, null);
+    private final Setting<Integer> nbHookMoveMaxDistance = nbInt("nb-hook-move-max-distance", "Farthest the randomized spot may be from the old bobber position (blocks). It is also limited by your cast range.", 8, 3, 14, () -> nbMoveHookOnNoFish.get() && nbRandomizeHookSpot.get());
+
+    private final Setting<Boolean> nbDetectFlag = nbBool("nb-detect-flag", "Bite signal: the bobber's own fish-caught flag.", true, null);
+    private final Setting<Boolean> nbDetectSound = nbBool("nb-detect-sound", "Bite signal: the bobber splash sound played near your bobber.", true, null);
+    private final Setting<Boolean> nbDetectDip = nbBool("nb-detect-dip", "Bite signal: the bobber suddenly moves down.", true, null);
+    private final Setting<Double> nbDipThreshold = nbDouble("nb-dip-threshold", "How far (blocks) the bobber must drop in one tick to count as a bite.", 0.12, 0.03, 0.5, () -> nbDetectDip.get());
+    private final Setting<Integer> nbRetryInterval = nbInt("nb-retry-interval", "Ticks between reel-in retries while the bobber is still out after a bite.", 20, 5, 60, null);
+    private final Setting<Integer> nbMaxRetries = nbInt("nb-max-retries", "How many times to retry reeling in the same bobber.", 5, 0, 20, null);
+    private final Setting<Integer> nbRecastTimeout = nbInt("nb-recast-timeout", "Ticks a bobber may stay out without a detected bite before it is reeled in and cast again. 0 disables.", 600, 0, 1200, null);
+
+    private final Setting<Boolean> nbSilent = nbBool("nb-silent", "Master switch: turns off every Auto Fish chat message below (and debug).", false, null);
+    private final Setting<Boolean> nbNotifyNoRod = nbBool("nb-notify-no-rod", "Tells you when there is no fishing rod in your hand or hotbar.", true, null);
+    private final Setting<Boolean> nbNotifyIdleReset = nbBool("nb-notify-idle-reset", "Tells you when Auto Fish was idle for a while and reset itself.", true, null);
+    private final Setting<Boolean> nbNotifyCastBlocked = nbBool("nb-notify-cast-blocked", "Tells you when it will not cast because the bobber would land off the water.", true, null);
+    private final Setting<Boolean> nbNotifySpot = nbBool("nb-notify-hook-move", "Tells you when the bobber could not be moved to open water.", true, null);
+    private final Setting<Boolean> nbNotifyErrors = nbBool("nb-notify-errors", "Tells you when saving or opening the fish file fails.", true, null);
+    private final Setting<Boolean> nbNotifyRecovery = nbBool("nb-notify-recovery", "Tells you in chat about reconnecting and walking to the saved position. Messages are sent once per step, not every tick.", true, null);
+    private final Setting<Boolean> nbDebug = nbBool("nb-debug", "Prints in chat which bite signal fired.", false, null);
+
+    private final Setting<Boolean> nbAutoReconnect = nbBool("nb-auto-reconnect", "Reconnects to the same server after a disconnect, walks to the no-boats saved position and fishes again. No boat is looked for. Turning the module off cancels all of it.", true, null);
+    private final Setting<Integer> nbReconnectDelay = nbInt("nb-reconnect-delay", "Seconds to wait before reconnecting. It doubles (up to 2 minutes) after every failed attempt or very short session.", 5, 1, 60, () -> nbAutoReconnect.get());
+    private final Setting<Integer> nbMaxReconnectAttempts = nbInt("nb-max-reconnect-attempts", "Gives up after this many failed reconnects (or disconnects within 30 seconds of joining) in a row. 0 = never give up.", 20, 0, 50, () -> nbAutoReconnect.get());
+    private final Setting<Boolean> nbIgnoreManualDisconnect = nbBool("nb-ignore-manual-disconnect", "Does not reconnect when you leave with the Disconnect button (only kicks, timeouts and lost connections trigger it).", true, () -> nbAutoReconnect.get());
+    private final Setting<Boolean> nbDestinationSet = nbBool("nb-destination-set", "Whether a no-boats recovery position is saved. Use the second row of Set position / Clear position buttons at the top of this module's window.", false, null);
+    private final Setting<BlockPos> nbDestination = sgNoBoats.add(new BlockPosSetting.Builder()
+            .name("nb-destination")
+            .description("Position walked to after reconnecting when no recorded no-boats path exists. The dimension is not stored.")
+            .defaultValue(new BlockPos(0, 64, 0))
+            .visible(() -> noBoatsAround.get() && nbDestinationSet.get())
+            .build()
+    );
+    private final Setting<Integer> nbNavigationTimeout = nbInt("nb-navigation-timeout", "Seconds the walk back to the saved position may take before recovery gives up. 0 = no limit.", 120, 0, 600, null);
+
+    private final Setting<Boolean> nbShoreShuffle = nbBool("nb-shore-shuffle", "Every nb-shore-shuffle-interval seconds (a little random) walks a random number of blocks left or right along the water's edge, then goes back to fishing. It alternates sides (4 blocks left, then about 3 right, ...) so it never drifts far, never steps into water and always stays within nb-shore-edge-distance blocks of the water.", true, null);
+    private final Setting<Integer> nbShoreInterval = nbInt("nb-shore-shuffle-interval", "Seconds between moves. How much it varies is set by nb-shore-shuffle-random-percent.", 30, 5, 300, () -> nbShoreShuffle.get());
+    private final Setting<Integer> nbShoreMaxBlocks = nbInt("nb-shore-shuffle-max-blocks", "Farthest a single move goes (blocks). Moves alternate left and right, so you never end up more than this far from where you started.", 5, 1, 10, () -> nbShoreShuffle.get());
+    private final Setting<Integer> nbShoreEdgeDistance = nbInt("nb-shore-edge-distance", "The new spot must have water within this many blocks, so you stay at the edge.", 3, 1, 6, () -> nbShoreShuffle.get());
+
+    private final Setting<Integer> nbHooksBeforeRandom = nbInt("nb-hooks-before-random", "When the bobber hooked an entity (boat, player, mob) more than this many times, the spot randomizer turns on at 100% (and the shore shuffle becomes fully random and moves sooner) until you reconnect.", 3, 1, 10, null);
+    private final Setting<Integer> nbShorePercent = nbInt("nb-shore-shuffle-random-percent", "How random the shore shuffle is, in percent. It sets how much the time between moves varies (+/- this much) and how often a move picks its side at random instead of going back the other way. 100 = fully random. It is 100 by itself after too many hooked entities.", 20, 0, 100, () -> nbShoreShuffle.get());
+
+    private final class Dual<T> {
+        private final Setting<T> normal;
+        private final Setting<T> noBoats;
+
+        private Dual(Setting<T> normal, Setting<T> noBoats) {
+            this.normal = normal;
+            this.noBoats = noBoats;
+        }
+
+        T get() {
+            return noBoatsAround.get() ? noBoats.get() : normal.get();
+        }
+
+        boolean set(T value) {
+            return (noBoatsAround.get() ? noBoats : normal).set(value);
+        }
+    }
+
+    private final Dual<Boolean> silent = new Dual<>(silentNormal, nbSilent);
+    private final Dual<Boolean> notifyNoRod = new Dual<>(notifyNoRodNormal, nbNotifyNoRod);
+    private final Dual<Boolean> notifyIdleReset = new Dual<>(notifyIdleResetNormal, nbNotifyIdleReset);
+    private final Dual<Boolean> notifyCastBlocked = new Dual<>(notifyCastBlockedNormal, nbNotifyCastBlocked);
+    private final Dual<Boolean> notifySpot = new Dual<>(notifySpotNormal, nbNotifySpot);
+    private final Dual<Boolean> notifyErrors = new Dual<>(notifyErrorsNormal, nbNotifyErrors);
+    private final Dual<Boolean> notifyRecovery = new Dual<>(notifyRecoveryNormal, nbNotifyRecovery);
+    private final Dual<Boolean> debug = new Dual<>(debugNormal, nbDebug);
+    private final Dual<Boolean> detectFlag = new Dual<>(detectFlagNormal, nbDetectFlag);
+    private final Dual<Boolean> detectSound = new Dual<>(detectSoundNormal, nbDetectSound);
+    private final Dual<Boolean> detectDip = new Dual<>(detectDipNormal, nbDetectDip);
+    private final Dual<Double> dipThreshold = new Dual<>(dipThresholdNormal, nbDipThreshold);
+    private final Dual<Integer> retryInterval = new Dual<>(retryIntervalNormal, nbRetryInterval);
+    private final Dual<Integer> maxRetries = new Dual<>(maxRetriesNormal, nbMaxRetries);
+    private final Dual<Integer> recastTimeout = new Dual<>(recastTimeoutNormal, nbRecastTimeout);
+    private final Dual<Boolean> autoSwitch = new Dual<>(autoSwitchNormal, nbAutoSwitch);
+    private final Dual<Boolean> antiBreak = new Dual<>(antiBreakNormal, nbAntiBreak);
+    private final Dual<Boolean> autoCast = new Dual<>(autoCastNormal, nbAutoCast);
+    private final Dual<Boolean> waterOnly = new Dual<>(waterOnlyNormal, nbWaterOnly);
+    private final Dual<Integer> waterRange = new Dual<>(waterRangeNormal, nbWaterRange);
+    private final Dual<Boolean> customCastPitch = new Dual<>(customCastPitchNormal, nbCustomCastPitch);
+    private final Dual<Double> castPitch = new Dual<>(castPitchNormal, nbCastPitch);
+    private final Dual<Boolean> autoAim = new Dual<>(autoAimNormal, nbAutoAim);
+    private final Dual<Boolean> lookAround = new Dual<>(lookAroundNormal, nbLookAround);
+    private final Dual<Double> lookAroundDegrees = new Dual<>(lookAroundDegreesNormal, nbLookAroundDegrees);
+    private final Dual<Boolean> lookAfterCatch = new Dual<>(lookAfterCatchNormal, nbLookAfterCatch);
+    private final Dual<Boolean> moveHookOnNoFish = new Dual<>(moveHookOnNoFishNormal, nbMoveHookOnNoFish);
+    private final Dual<Integer> hookMoveDistance = new Dual<>(hookMoveDistanceNormal, nbHookMoveDistance);
+    private final Dual<Boolean> randomizeHookSpot = new Dual<>(randomizeHookSpotNormal, nbRandomizeHookSpot);
+    private final Dual<Integer> hookMoveMaxDistance = new Dual<>(hookMoveMaxDistanceNormal, nbHookMoveMaxDistance);
+    private final Dual<Integer> hooksBeforeRandom = new Dual<>(hooksBeforeRandomNormal, nbHooksBeforeRandom);
+    private final Dual<Boolean> autoReconnect = new Dual<>(autoReconnectNormal, nbAutoReconnect);
+    private final Dual<Integer> reconnectDelay = new Dual<>(reconnectDelayNormal, nbReconnectDelay);
+    private final Dual<Integer> maxReconnectAttempts = new Dual<>(maxReconnectAttemptsNormal, nbMaxReconnectAttempts);
+    private final Dual<Boolean> ignoreManualDisconnect = new Dual<>(ignoreManualDisconnectNormal, nbIgnoreManualDisconnect);
+    private final Dual<Boolean> destinationSet = new Dual<>(destinationSetNormal, nbDestinationSet);
+    private final Dual<BlockPos> destination = new Dual<>(destinationNormal, nbDestination);
+    private final Dual<Integer> navigationTimeout = new Dual<>(navigationTimeoutNormal, nbNavigationTimeout);
+
+    private boolean noBoatsMode() {
+        return noBoatsAround.get();
+    }
+
+    private boolean boatAvoid() {
+        return !noBoatsMode() && avoidBoat.get();
+    }
+
+    private Setting<BlockPos> destSetting(boolean nb) {
+        return nb ? nbDestination : destinationNormal;
+    }
+
+    private Setting<Boolean> destSetSetting(boolean nb) {
+        return nb ? nbDestinationSet : destinationSetNormal;
+    }
 
     private boolean caught;
     private int reeledHookId = -1;
@@ -442,6 +744,40 @@ public class SixToolsAutoFish extends Module {
     private Vec3d spotFrom;
     private Vec3d spotTarget;
     private Vec3d returnSpot;
+    private final ArrayDeque<Vec3d> recentSpots = new ArrayDeque<>();
+
+    private final List<Vec3d> blockedSpots = new ArrayList<>();
+    private int blockedHookId = -1;
+    private int blockedRecasts;
+
+    private int playerHooks;
+    private int lastHookedMsgTick = -100;
+    private boolean randomForced;
+    private boolean shoreMoving;
+    private Vec3d shoreTarget;
+    private Vec3d shoreProgress = Vec3d.ZERO;
+    private Vec3d shoreStart;
+    private Vec3d shoreDetour;
+    private int shoreDetourTicks;
+    private int shoreStuckCount;
+    private int shoreSideSign = 1;
+
+    private int recastMessages;
+    private int lastShoreStartTick = -1000;
+    private Vec3d shoreAnchor;
+    private Vec3d shoreAxis;
+    private int shoreMoveTicks;
+    private int nextShoreTick;
+
+    private boolean shoreGotSomething;
+    private float shoreRestoreYaw = Float.NaN;
+    private float shoreRestorePitch;
+    private boolean noFishPending;
+    private int noFishTick;
+    private boolean randomAimReady;
+    private float randomAimYaw;
+    private float randomAimPitch;
+    private int randomAimTick;
     private float yawBias;
     private float lastCastYaw = Float.NaN;
     private float lastCastPitch;
@@ -463,6 +799,7 @@ public class SixToolsAutoFish extends Module {
     private int tickCounter;
     private static final int MESSAGE_COOLDOWN_TICKS = 60;
     private static final int CAST_COOLDOWN_TICKS = 20;
+    private static final int RELOCATE_CAST_COOLDOWN_TICKS = 8;
     private int lastMessageMoveTick = -MESSAGE_COOLDOWN_TICKS;
     private int lastBoatWarnTick = -100;
     private int lastCastTick = -CAST_COOLDOWN_TICKS;
@@ -484,6 +821,13 @@ public class SixToolsAutoFish extends Module {
     public SixToolsAutoFish() {
         super(SixToolsAddon.CATEGORY, "6tools-auto-fish", "Auto Fish for the 6b6t lobby. Sit in a boat.");
         applyTitle();
+
+        runInMainMenu = true;
+
+        ClientTickEvents.START_CLIENT_TICK.register(client -> {
+            tickRecording();
+            if (isActive()) tickRecovery();
+        });
     }
 
     private void applyTitle() {
@@ -492,12 +836,27 @@ public class SixToolsAutoFish extends Module {
             field.setAccessible(true);
             field.set(this, DISPLAY_TITLE);
         } catch (Throwable ignored) {
-           gamerguy11.sixtoolsaddon.utils.Swallowed.log("SixToolsAutoFish:401", ignored);
+            gamerguy11.sixtoolsaddon.utils.Swallowed.log("SixToolsAutoFish:401", ignored);
         }
     }
 
     @Override
     public void onActivate() {
+        resetFishState();
+        if (trackStats.get()) FishStats.writeHtml(statsInterval.get(), serverTotal.get());
+    }
+
+    @Override
+    public void toggle() {
+        super.toggle();
+        resetRecovery();
+        if (isActive() && mc.player != null && mc.world != null) {
+            captureServer();
+            setState(RecoveryState.FISHING);
+        }
+    }
+
+    private void resetFishState() {
         caught = false;
         reeledHookId = -1;
         pendingBlocks = 0;
@@ -507,6 +866,14 @@ public class SixToolsAutoFish extends Module {
         verifySpot = false;
         spotRetries = 0;
         returnSpot = null;
+        recentSpots.clear();
+        randomAimReady = false;
+        noFishPending = false;
+        shoreMoving = false;
+        shoreGotSomething = false;
+        shoreAnchor = null;
+        shoreAxis = null;
+        scheduleShore();
         lastCastYaw = Float.NaN;
         lastHookPos = null;
         resetBite();
@@ -518,7 +885,6 @@ public class SixToolsAutoFish extends Module {
         lastAdviceTick = -ADVICE_INTERVAL_TICKS;
         aimSearchBlockedUntil = 0;
         lastStallResetTick = tickCounter;
-        if (trackStats.get()) FishStats.writeHtml(statsInterval.get(), serverTotal.get());
     }
 
     private void resetBite() {
@@ -550,6 +916,8 @@ public class SixToolsAutoFish extends Module {
 
     @Override
     public void onDeactivate() {
+        shoreMoving = false;
+        cancelOwnNav();
         stopMove();
         pendingBlocks = 0;
         needNewSpot = false;
@@ -564,8 +932,12 @@ public class SixToolsAutoFish extends Module {
             if (mc.getSession() != null) FishStats.recordBroadcast(text, mc.getSession().getUsername());
         }
         logFish(text, event.getMessage());
-        if (CAUGHT_PATTERN.matcher(text).find()) lastCatchTick = tickCounter;
+        if (CAUGHT_PATTERN.matcher(text).find()) {
+            lastCatchTick = tickCounter;
+            recastMessages = 0;
+        }
         String message = text.toLowerCase();
+        if (message.contains(RECAST_MESSAGE)) recastMessages++;
 
         if (message.contains(RECAST_MESSAGE) && tickCounter - lastLookTick >= MESSAGE_COOLDOWN_TICKS) {
             lastLookTick = tickCounter;
@@ -573,31 +945,11 @@ public class SixToolsAutoFish extends Module {
             else if (lookAround.get()) lookAround();
         }
 
-        if (message.contains(NO_FISH_MESSAGE) && moveHookOnNoFish.get() && lastHookPos != null && !needNewSpot
-            && tickCounter - lastMessageMoveTick >= MESSAGE_COOLDOWN_TICKS && mc.player != null) {
-            lastMessageMoveTick = tickCounter;
-            Vec3d from = lastHookPos;
-            Vec3d target;
-            if (returnSpot != null && usableSpot(returnSpot)) {
-                target = returnSpot;
-                returnSpot = null;
-            } else {
-                target = chooseNeighbor(from);
-                returnSpot = target == null ? null : from;
-            }
-            if (target == null) {
-                warnSpot();
-                return;
-            }
-            spotFrom = from;
-            spotTarget = target;
-            needNewSpot = true;
-            verifySpot = false;
-            spotRetries = 0;
-            yawBias = 0;
-            rangeBias = 0;
-            relocateNudge = RELOCATE_NUDGE;
-            reelForSpot = mc.player.fishHook != null;
+        if (message.contains(NO_FISH_MESSAGE) && moveHookOnNoFish.get() && !needNewSpot
+                && tickCounter - lastMessageMoveTick >= MESSAGE_COOLDOWN_TICKS && mc.player != null) {
+
+            noFishPending = true;
+            noFishTick = tickCounter;
         }
     }
 
@@ -606,8 +958,15 @@ public class SixToolsAutoFish extends Module {
         if (mc.player == null || mc.world == null) return;
 
         tickCounter++;
+        flushMessages();
         if (trackStats.get() && tickCounter % (statsInterval.get() * 20) == 0) FishStats.writeHtml(statsInterval.get(), serverTotal.get());
+        if (state == RecoveryState.IDLE) {
+            resetFishState();
+            setState(RecoveryState.FISHING);
+        }
+        if (state != RecoveryState.FISHING) return;
         tickMove();
+        tickShore();
         adviseBoat();
 
         FishingBobberEntity current = mc.player.fishHook;
@@ -623,7 +982,7 @@ public class SixToolsAutoFish extends Module {
             if (lookAfterCatch.get()) lookAround();
         }
 
-        if (idleMove.get() && !moving && pendingBlocks == 0 && tickCounter - lastCatchTick >= idleMoveTime.get() * 20) {
+        if (!noBoatsMode() && idleMove.get() && !moving && pendingBlocks == 0 && tickCounter - lastCatchTick >= idleMoveTime.get() * 20) {
             lastCatchTick = tickCounter;
             pendingBlocks = idleMoveDistance.get();
         }
@@ -634,7 +993,21 @@ public class SixToolsAutoFish extends Module {
             startMove(blocks);
         }
 
-        if (moving || pendingBlocks > 0) return;
+        if (noBoatsMode() && nbShoreShuffle.get() && !shoreMoving) {
+
+            boolean dead = (recastMessages >= 3 || tickCounter - lastCatchTick > 900) && tickCounter - lastShoreStartTick >= 200;
+            if (dead) {
+                needNewSpot = false;
+                reelForSpot = false;
+                verifySpot = false;
+                noFishPending = false;
+                startShoreMove();
+            } else if (shoreGotSomething && tickCounter >= nextShoreTick && !needNewSpot && !reelForSpot && !noFishPending) {
+                startShoreMove();
+            }
+        }
+
+        if (moving || pendingBlocks > 0 || shoreMoving) return;
 
         int bestRodSlot = findBestRod();
 
@@ -654,7 +1027,7 @@ public class SixToolsAutoFish extends Module {
         }
 
         if (autoCast.get() && mc.player.fishHook == null && tickCounter - lastCastTick > 300
-            && tickCounter - lastStallResetTick > 300) {
+                && tickCounter - lastStallResetTick > 300) {
             lastStallResetTick = tickCounter;
             needNewSpot = false;
             reelForSpot = false;
@@ -663,6 +1036,8 @@ public class SixToolsAutoFish extends Module {
             settledYaw = Float.NaN;
             if (!silent.get() && notifyIdleReset.get()) warning("Auto fish was idle for a while, resetting and casting again.");
         }
+
+        startHookMove();
 
         if (reelForSpot) {
             reelForSpot = false;
@@ -678,8 +1053,52 @@ public class SixToolsAutoFish extends Module {
         tryCatch();
     }
 
+    private void startHookMove() {
+        if (!noFishPending) return;
+        if (needNewSpot || !moveHookOnNoFish.get() || tickCounter - noFishTick > 100) {
+            noFishPending = false;
+            return;
+        }
+        FishingBobberEntity hook = mc.player.fishHook;
+        Vec3d from = lastHookPos;
+        if (hook != null && hook.isTouchingWater()) from = hook.getEntityPos();
+        else if (hook != null && tickCounter - noFishTick < 40) return;
+        if (from == null) return;
+        noFishPending = false;
+        lastMessageMoveTick = tickCounter;
+
+        Vec3d target = null;
+        if (randomizerActive()) {
+            target = chooseRandomSpot(from);
+            returnSpot = null;
+        }
+        if (target == null) {
+            if (!randomizerActive() && returnSpot != null && usableSpot(returnSpot)) {
+                target = returnSpot;
+                returnSpot = null;
+            } else {
+                target = chooseNeighbor(from);
+                returnSpot = target == null || randomizerActive() ? null : from;
+            }
+        }
+        if (target == null) {
+            warnSpot();
+            return;
+        }
+        spotFrom = from;
+        spotTarget = target;
+        needNewSpot = true;
+        verifySpot = false;
+        spotRetries = 0;
+        yawBias = 0;
+        rangeBias = 0;
+        relocateNudge = RELOCATE_NUDGE;
+        reelForSpot = mc.player.fishHook != null;
+    }
+
     private void logFish(String text, net.minecraft.text.Text message) {
-        if (!saveFish.get() && !trackStats.get()) return;
+        if (CAUGHT_PATTERN.matcher(text).find()) shoreGotSomething = true;
+        if (!trackStats.get()) return;
         Matcher m = CAUGHT_PATTERN.matcher(text);
         if (!m.find()) return;
         double size;
@@ -689,50 +1108,13 @@ public class SixToolsAutoFish extends Module {
             return;
         }
         String name = m.group(1).trim();
-        if (trackStats.get()) FishStats.record(name, size, System.currentTimeMillis() / 1000, FishStats.colorRarity(message, name));
-        if (!saveFish.get() || size < minFishSize.get()) return;
-        String time = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-        try {
-            ensureFishFile();
-            String row = String.format("<div class=\"fish\"><span class=\"name\">%s</span> <span class=\"size\">%.1f cm</span> <span class=\"time\">%s</span></div>\n",
-                escapeHtml(name), size, time);
-            Files.writeString(FISH_FILE, row, StandardOpenOption.APPEND);
-            if (debug.get() && !silent.get()) info("Saved %s (%.1f cm).", name, size);
-        } catch (IOException e) {
-            if (!silent.get() && notifyErrors.get()) error("Failed to save fish: %s", e.getMessage());
-        }
-    }
-
-    private static void ensureFishFile() throws IOException {
-        if (Files.exists(FISH_FILE)) return;
-        Files.createDirectories(FISH_DIR);
-        String head = "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n<title>My Fish</title>\n<style>\n"
-            + "body { background-color: #36393f; color: #dcddde; font-family: sans-serif; padding: 10px; max-width: 700px; margin: auto; }\n"
-            + ".fish { background: #2f3136; border-radius: 6px; padding: 10px 14px; margin-bottom: 8px; display: flex; gap: 14px; align-items: baseline; }\n"
-            + ".name { font-weight: bold; color: #fff; flex: 1; }\n"
-            + ".size { color: #57f287; font-weight: bold; }\n"
-            + ".time { font-size: 0.75rem; color: #72767d; }\n"
-            + "</style>\n</head>\n<body>\n<h2 style=\"color:#fff;text-align:center;margin-bottom:20px;\">SixToolsAddon My Fish</h2>\n";
-        Files.writeString(FISH_FILE, head, StandardOpenOption.CREATE);
-    }
-
-    private static String escapeHtml(String t) {
-        return t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;");
+        FishStats.record(name, size, System.currentTimeMillis() / 1000, FishStats.colorRarity(message, name));
     }
 
     @Override
     public WWidget getWidget(GuiTheme theme) {
-        WHorizontalList list = theme.horizontalList();
-
-        WButton fish = list.add(theme.button("My fish")).widget();
-        fish.action = () -> {
-            try {
-                ensureFishFile();
-                Util.getOperatingSystem().open(FISH_FILE);
-            } catch (IOException e) {
-                if (!silent.get() && notifyErrors.get()) error("Failed to open fish file: %s", e.getMessage());
-            }
-        };
+        WVerticalList root = theme.verticalList();
+        WHorizontalList list = root.add(theme.horizontalList()).expandX().widget();
 
         WButton stats = list.add(theme.button("Fish stats")).widget();
         stats.action = () -> {
@@ -755,7 +1137,309 @@ public class SixToolsAutoFish extends Module {
             t.start();
         };
 
-        return list;
+        addRecoveryRow(theme, root, false);
+        addRecoveryRow(theme, root, true);
+
+        return root;
+    }
+
+    private void addRecoveryRow(GuiTheme theme, WVerticalList root, boolean nb) {
+        WHorizontalList recovery = root.add(theme.horizontalList()).expandX().widget();
+        WLabel positionLabel = recovery.add(theme.label(destinationText(nb))).widget();
+
+        WButton record = recovery.add(theme.button("Record path")).widget();
+        record.action = () -> {
+            startRecording(nb);
+            positionLabel.set("Recording...");
+        };
+
+        WButton stopRecord = recovery.add(theme.button("Stop recording")).widget();
+        stopRecord.action = () -> {
+            stopRecording();
+            positionLabel.set(destinationText(nb));
+        };
+
+        WButton setPosition = recovery.add(theme.button("Set position")).widget();
+        setPosition.action = () -> {
+            if (mc.player == null) {
+                error("Join a world first: Set position saves where you are standing.");
+                return;
+            }
+            clearPath(nb);
+            destSetting(nb).set(mc.player.getBlockPos());
+            destSetSetting(nb).set(true);
+            positionLabel.set(destinationText(nb));
+        };
+
+        WButton clearPosition = recovery.add(theme.button("Clear position")).widget();
+        clearPosition.action = () -> {
+            clearPath(nb);
+            destSetSetting(nb).set(false);
+            positionLabel.set(destinationText(nb));
+        };
+    }
+
+    private int shorePercent() {
+        return randomForced ? 100 : Math.min(100, Math.max(0, nbShorePercent.get()));
+    }
+
+    private void scheduleShore() {
+        double jitter = 1.0 + (java.util.concurrent.ThreadLocalRandom.current().nextDouble() * 2.0 - 1.0) * shorePercent() / 100.0;
+        nextShoreTick = tickCounter + Math.max(60, (int) (nbShoreInterval.get() * 20 * jitter));
+    }
+
+    private Vec3d shoreAxisFromWater() {
+        BlockPos base = mc.player.getBlockPos();
+        for (int r = 1; r <= 8; r++) {
+            for (int i = 0; i < 16; i++) {
+                double angle = Math.toRadians(i * 22.5);
+                double dx = -Math.sin(angle) * r;
+                double dz = Math.cos(angle) * r;
+                int x = base.getX() + (int) Math.round(dx);
+                int z = base.getZ() + (int) Math.round(dz);
+                for (int dy = 1; dy >= -3; dy--) {
+                    if (isWater(new BlockPos(x, base.getY() + dy, z))) {
+                        double len = Math.hypot(dx, dz);
+                        return new Vec3d(-dz / len, 0, dx / len);
+                    }
+                }
+            }
+        }
+        double yaw = Math.toRadians(mc.player.getYaw());
+        return new Vec3d(-Math.cos(yaw), 0, -Math.sin(yaw));
+    }
+
+    private double groundY(double x, double z, double refY) {
+        BlockPos col = BlockPos.ofFloored(x, refY, z);
+        for (int dy : new int[]{0, 1, -1, -2}) {
+            BlockPos feet = col.up(dy);
+            BlockPos below = feet.down();
+            BlockPos head = feet.up();
+            boolean solidBelow = !mc.world.getBlockState(below).getCollisionShape(mc.world, below).isEmpty();
+            boolean feetFree = mc.world.getBlockState(feet).getCollisionShape(mc.world, feet).isEmpty();
+            boolean headFree = mc.world.getBlockState(head).getCollisionShape(mc.world, head).isEmpty();
+            if (solidBelow && feetFree && headFree && !isWater(feet) && !isWater(below)) return feet.getY();
+        }
+        return Double.NaN;
+    }
+
+    private boolean waterNear(Vec3d pos, int radius) {
+        int fy = MathHelper.floor(pos.y);
+        int px = MathHelper.floor(pos.x);
+        int pz = MathHelper.floor(pos.z);
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dz = -radius; dz <= radius; dz++) {
+                for (int dy = -3; dy <= 0; dy++) {
+                    if (isWater(new BlockPos(px + dx, fy + dy, pz + dz))) return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private Vec3d shorePath(Vec3d pos, int dir, int blocks) {
+        double y = pos.y;
+        Vec3d end = null;
+        for (int k = 1; k <= blocks * 2; k++) {
+            double x = pos.x + shoreAxis.x * dir * 0.5 * k;
+            double z = pos.z + shoreAxis.z * dir * 0.5 * k;
+            double ground = groundY(x, z, y);
+            if (Double.isNaN(ground) || Math.abs(ground - y) > 1.01) return null;
+            y = ground;
+            end = new Vec3d(x, ground, z);
+        }
+        if (end == null || !waterNear(end, nbShoreEdgeDistance.get())) return null;
+        return end;
+    }
+
+    private Vec3d shoreTargetFor(Vec3d pos, int dir, int blocks) {
+        for (int n = blocks; n >= Math.min(blocks, 2); n--) {
+            Vec3d target = shorePath(pos, dir, n);
+            if (target != null) return target;
+        }
+        return null;
+    }
+
+    private double shoreLeash() {
+        return nbShoreMaxBlocks.get() * (randomForced ? 2 : 1) + 3.0;
+    }
+
+    private boolean withinLeash(Vec3d p, double x, double z) {
+        if (shoreAnchor == null) return true;
+        double away = Math.hypot(p.x - shoreAnchor.x, p.z - shoreAnchor.z);
+        return Math.hypot(x - shoreAnchor.x, z - shoreAnchor.z) <= Math.max(shoreLeash(), away) + 0.5;
+    }
+
+    private void startShoreMove() {
+        scheduleShore();
+        lastShoreStartTick = tickCounter;
+        recastMessages = 0;
+        if (mc.player.hasVehicle() || !mc.player.isOnGround()) return;
+        Vec3d pos = mc.player.getEntityPos();
+        if (shoreAnchor == null || shoreAxis == null) {
+            shoreAxis = shoreAxisFromWater();
+            shoreAnchor = pos;
+        }
+        double offset = (pos.x - shoreAnchor.x) * shoreAxis.x + (pos.z - shoreAnchor.z) * shoreAxis.z;
+
+        Vec3d homeTarget = Math.hypot(pos.x - shoreAnchor.x, pos.z - shoreAnchor.z) > shoreLeash() - 2.0 ? shoreAnchor : null;
+        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
+
+        int max = nbShoreMaxBlocks.get() * (randomForced ? 2 : 1);
+        int dir = Math.abs(offset) < 0.5 || random.nextInt(100) < shorePercent() ? (random.nextBoolean() ? 1 : -1) : (offset > 0 ? -1 : 1);
+        int minBlocks = Math.min(max, 2);
+        int blocks = minBlocks + random.nextInt(max - minBlocks + 1);
+        if (Math.abs(offset) >= 0.5 && Math.signum(offset) == dir) {
+            double room = max - Math.abs(offset);
+            if (room < 1) dir = -dir;
+            else blocks = Math.min(blocks, (int) room);
+        }
+        Vec3d target = homeTarget != null ? homeTarget : shoreTargetFor(pos, dir, blocks);
+        if (target == null) target = shoreTargetFor(pos, -dir, blocks);
+        if (target == null) {
+            if (debug.get() && !silent.get()) info("Shore shuffle: no dry spot at the edge, skipping this time.");
+            return;
+        }
+        if (mc.player.fishHook != null) useRod();
+        shoreRestoreYaw = mc.player.getYaw();
+        shoreRestorePitch = mc.player.getPitch();
+        shoreGotSomething = false;
+        shoreDetour = null;
+        shoreDetourTicks = 0;
+        shoreStuckCount = 0;
+        shoreStart = pos;
+        shoreTarget = target;
+        shoreProgress = pos;
+        shoreMoveTicks = 0;
+        shoreMoving = true;
+        if (debug.get() && !silent.get()) info("Shore shuffle: walking %.1f blocks along the shore (offset from start %.1f).", Math.hypot(target.x - pos.x, target.z - pos.z), offset);
+    }
+
+    private void tickShore() {
+        if (!shoreMoving) return;
+        if (mc.player.hasVehicle()) {
+            stopShore();
+            return;
+        }
+        Vec3d p = mc.player.getEntityPos();
+        if (Math.hypot(p.x - shoreTarget.x, p.z - shoreTarget.z) <= 0.4 || ++shoreMoveTicks > 400) {
+            stopShore();
+            return;
+        }
+        if (shoreAnchor != null && shoreTarget != shoreAnchor
+                && Math.hypot(p.x - shoreAnchor.x, p.z - shoreAnchor.z) > shoreLeash()) {
+            shoreTarget = shoreAnchor;
+            shoreDetour = null;
+            shoreDetourTicks = 0;
+            shoreStuckCount = 0;
+        }
+        Vec3d blocker = detourAround(p, shoreTarget);
+        if (blocker != null) {
+            if (Math.hypot(p.x - shoreTarget.x, p.z - shoreTarget.z) < 1.6) {
+                stopShore();
+                return;
+            }
+            shoreDetour = blocker;
+            shoreDetourTicks = 40;
+        }
+        if (shoreMoveTicks % 20 == 0) {
+            if (p.squaredDistanceTo(shoreProgress) < 0.09) {
+
+                if (++shoreStuckCount > 6) {
+                    stopShore();
+                    return;
+                }
+                shoreSideSign = -shoreSideSign;
+                double dx = shoreTarget.x - p.x;
+                double dz = shoreTarget.z - p.z;
+                double len = Math.max(0.001, Math.hypot(dx, dz));
+                double reach = 1.5 + shoreStuckCount;
+                double x = p.x - dz / len * reach * shoreSideSign + dx / len * 1.5;
+                double z = p.z + dx / len * reach * shoreSideSign + dz / len * 1.5;
+                double g = groundY(x, z, p.y);
+                if (Double.isNaN(g)) {
+                    x = p.x + dz / len * reach * shoreSideSign + dx / len * 1.5;
+                    z = p.z - dx / len * reach * shoreSideSign + dz / len * 1.5;
+                    g = groundY(x, z, p.y);
+                }
+                if (!Double.isNaN(g) && Math.abs(g - p.y) <= 1.01 && withinLeash(p, x, z)) {
+                    shoreDetour = new Vec3d(x, g, z);
+                    shoreDetourTicks = 30;
+                }
+            }
+            shoreProgress = p;
+        }
+        if (shoreDetour != null && shoreDetourTicks > 0 && Math.hypot(p.x - shoreDetour.x, p.z - shoreDetour.z) > 0.5) {
+            shoreDetourTicks--;
+            walkToward(shoreDetour, false);
+        } else {
+            shoreDetour = null;
+            walkToward(shoreTarget, false);
+        }
+    }
+
+    private Vec3d detourAround(Vec3d p, Vec3d target) {
+        double dx = target.x - p.x;
+        double dz = target.z - p.z;
+        double len = Math.hypot(dx, dz);
+        if (len < 0.3) return null;
+        double hx = dx / len;
+        double hz = dz / len;
+        double reach = Math.min(len, 2.5);
+        Box ahead = mc.player.getBoundingBox().stretch(hx * reach, 0, hz * reach).expand(0.2, 0, 0.2);
+        Entity blocker = null;
+        double best = Double.MAX_VALUE;
+        for (Entity e : mc.world.getOtherEntities(mc.player, ahead, en ->
+                en != mc.player.getVehicle() && !en.isSpectator()
+                        && (en instanceof net.minecraft.entity.vehicle.VehicleEntity || en instanceof net.minecraft.entity.LivingEntity))) {
+            double d = e.squaredDistanceTo(mc.player);
+            if (d < best) {
+                best = d;
+                blocker = e;
+            }
+        }
+        if (blocker == null) return null;
+        double px = -hz;
+        double pz = hx;
+        Box bb = blocker.getBoundingBox();
+        double half = Math.max(bb.getLengthX(), bb.getLengthZ()) * 0.5;
+        double side = half + 1.0;
+        double past = half + 1.0;
+        Vec3d c = blocker.getEntityPos();
+        Vec3d best1 = null;
+        for (int s : new int[]{1, -1}) {
+            double x = c.x + px * side * s + hx * past;
+            double z = c.z + pz * side * s + hz * past;
+            double g = groundY(x, z, p.y);
+            if (Double.isNaN(g) || Math.abs(g - p.y) > 1.01 || !withinLeash(p, x, z)) continue;
+            Vec3d cand = new Vec3d(x, g, z);
+            if (!waterNear(cand, 1)) return cand;
+            if (best1 == null) best1 = cand;
+        }
+        return best1;
+    }
+
+    private void stopShore() {
+        if (shoreMoving && shoreStart != null && mc.player != null) {
+            Vec3d now = mc.player.getEntityPos();
+            if (Math.hypot(now.x - shoreStart.x, now.z - shoreStart.z) < 1.5) {
+
+                shoreGotSomething = true;
+                nextShoreTick = tickCounter + 100;
+            }
+        }
+        shoreMoving = false;
+        stopManualWalk();
+        if (mc.player != null && !Float.isNaN(shoreRestoreYaw)) {
+            mc.player.setYaw(shoreRestoreYaw);
+            mc.player.setPitch(shoreRestorePitch);
+        }
+        shoreRestoreYaw = Float.NaN;
+
+        lastHookPos = null;
+        returnSpot = null;
+        settledYaw = Float.NaN;
+        lastCastTick = tickCounter;
     }
 
     private void startMove(int blocks) {
@@ -875,7 +1559,7 @@ public class SixToolsAutoFish extends Module {
         Vec3d eye = mc.player.getEyePos();
         Vec3d end = eye.add(mc.player.getRotationVec(1.0f).multiply(waterRange.get()));
         BlockHitResult hit = mc.world.raycast(new RaycastContext(eye, end, RaycastContext.ShapeType.COLLIDER,
-            RaycastContext.FluidHandling.SOURCE_ONLY, mc.player));
+                RaycastContext.FluidHandling.SOURCE_ONLY, mc.player));
         return hit.getType() == HitResult.Type.BLOCK && isWater(hit.getBlockPos());
     }
 
@@ -892,7 +1576,7 @@ public class SixToolsAutoFish extends Module {
         Vec3d eye = mc.player.getEyePos();
         Vec3d end = eye.add(mc.player.getRotationVec(1.0f).multiply(waterRange.get()));
         BlockHitResult hit = mc.world.raycast(new RaycastContext(eye, end, RaycastContext.ShapeType.COLLIDER,
-            RaycastContext.FluidHandling.SOURCE_ONLY, mc.player));
+                RaycastContext.FluidHandling.SOURCE_ONLY, mc.player));
 
         if (hit.getType() != HitResult.Type.BLOCK) return false;
 
@@ -909,7 +1593,27 @@ public class SixToolsAutoFish extends Module {
         return false;
     }
 
+    private double surfaceYOnLand() {
+        BlockPos base = mc.player.getBlockPos();
+        int reach = Math.max(2, waterRange.get());
+        for (int r = 0; r <= reach; r++) {
+            int samples = r == 0 ? 1 : 16;
+            for (int i = 0; i < samples; i++) {
+                double angle = Math.toRadians(i * 360.0 / samples);
+                int x = base.getX() + (int) Math.round(-Math.sin(angle) * r);
+                int z = base.getZ() + (int) Math.round(Math.cos(angle) * r);
+                for (int dy = 1; dy >= -4; dy--) {
+                    BlockPos p = new BlockPos(x, base.getY() + dy, z);
+                    var fluid = mc.world.getFluidState(p);
+                    if (fluid.isIn(FluidTags.WATER)) return p.getY() + fluid.getHeight(mc.world, p);
+                }
+            }
+        }
+        return Double.NaN;
+    }
+
     private double surfaceY() {
+        if (noBoatsMode()) return surfaceYOnLand();
         BlockPos base = mc.player.hasVehicle() ? mc.player.getVehicle().getBlockPos() : mc.player.getBlockPos();
         for (int i = -1; i <= 3; i++) {
             BlockPos p = base.down(i);
@@ -924,7 +1628,8 @@ public class SixToolsAutoFish extends Module {
         if (land == null) return false;
         double range = Math.hypot(land.x - mc.player.getX(), land.z - mc.player.getZ());
         if (range > Math.max(MAX_CAST_RANGE, waterRange.get())) return false;
-        if (avoidBoat.get() && mc.player.hasVehicle() && range < minCastDistance.get()) return false;
+        if (boatAvoid() && mc.player.hasVehicle() && range < minCastDistance.get()) return false;
+        if (!blockedSpots.isEmpty() && autoAim.get() && nearBlockedSpot(land)) return false;
         return !waterOnly.get() || isWater(BlockPos.ofFloored(land.x, surface - 0.1, land.z));
     }
 
@@ -933,7 +1638,7 @@ public class SixToolsAutoFish extends Module {
         if (Double.isNaN(surface)) {
 
             if (waterOnly.get() && !aimedAtWater()) return false;
-            return !(avoidBoat.get() && landingNearBoat());
+            return !(boatAvoid() && landingNearBoat());
         }
         if (castValid(mc.player.getYaw(), mc.player.getPitch(), surface)) return true;
         if (!autoAim.get()) {
@@ -972,7 +1677,7 @@ public class SixToolsAutoFish extends Module {
     private void tryCast() {
         if (mc.player.fishHook != null) return;
         if (!autoCast.get()) return;
-        if (tickCounter - lastCastTick < CAST_COOLDOWN_TICKS) return;
+        if (tickCounter - lastCastTick < (needNewSpot ? RELOCATE_CAST_COOLDOWN_TICKS : CAST_COOLDOWN_TICKS)) return;
 
         boolean relocating = needNewSpot && aimAtTarget();
         if (needNewSpot && !relocating) {
@@ -981,8 +1686,9 @@ public class SixToolsAutoFish extends Module {
             returnSpot = null;
             warnSpot();
         }
-        if (!relocating && customCastPitch.get()) mc.player.setPitch(castPitch.get().floatValue());
-        ensureLookChanged(relocating);
+        boolean randomAim = !relocating && randomizerActive() && aimRandomSpot();
+        if (!relocating && !randomAim && customCastPitch.get()) mc.player.setPitch(castPitch.get().floatValue());
+        if (!randomAim) ensureLookChanged(relocating);
         if (!relocating && !prepareCast()) return;
 
         float yawNow = mc.player.getYaw();
@@ -999,11 +1705,130 @@ public class SixToolsAutoFish extends Module {
         lastCastYaw = mc.player.getYaw();
         lastCastPitch = mc.player.getPitch();
         if (relocating) verifySpot = true;
+        randomAimReady = false;
         useRod();
+    }
+
+    private boolean randomizerActive() {
+        return randomizeHookSpot.get() || randomForced;
+    }
+
+    private boolean aimRandomSpot() {
+        if (randomAimReady && tickCounter - randomAimTick < 200) {
+            mc.player.setYaw(randomAimYaw);
+            mc.player.setPitch(randomAimPitch);
+            return true;
+        }
+        randomAimReady = false;
+        double surface = surfaceY();
+        if (Double.isNaN(surface)) return false;
+
+        double min = Math.max(MIN_CAST_RANGE, boatAvoid() ? minCastDistance.get() : 0.0);
+        double max = Math.min(MAX_CAST_RANGE, Math.max(waterRange.get(), min + 2.0));
+        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
+        for (int pass = 0; pass < 2; pass++) {
+            for (int i = 0; i < 40; i++) {
+                float yaw = (float) (random.nextDouble() * 360.0 - 180.0);
+                double range = min + random.nextDouble() * (max - min);
+                Float pitch = solvePitch(yaw, range, surface);
+                if (pitch == null || !castValid(yaw, pitch, surface)) continue;
+                Vec3d land = landingPoint(yaw, pitch, surface);
+                if (land == null || nearBlockedSpot(land) || !waterAround(land)) continue;
+                if (pass == 0 && nearRecentSpot(land)) continue;
+                if (!flightClear(yaw, pitch, surface)) continue;
+                rememberSpot(land);
+                randomAimYaw = yaw;
+                randomAimPitch = pitch;
+                randomAimTick = tickCounter;
+                randomAimReady = true;
+                mc.player.setYaw(yaw);
+                mc.player.setPitch(pitch);
+                if (debug.get() && !silent.get()) info("Random spot: yaw %.0f, pitch %.0f, %.1f blocks out.", yaw, pitch, range);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean flightClear(float yaw, float pitch, double surfaceY) {
+        double yawRad = Math.toRadians(yaw);
+        double pitchRad = Math.toRadians(pitch);
+        double vy = MathHelper.clamp(-Math.tan(pitchRad), -5.0, 5.0);
+        double speed = 0.6 / Math.sqrt(1.0 + vy * vy) + 0.5;
+        Vec3d velocity = new Vec3d(-Math.sin(yawRad) * speed, vy * speed, Math.cos(yawRad) * speed);
+        Vec3d pos = new Vec3d(mc.player.getX() - Math.sin(yawRad) * 0.3, mc.player.getEyeY(), mc.player.getZ() + Math.cos(yawRad) * 0.3);
+        if (pos.y <= surfaceY) return false;
+        List<Box> blockers = new ArrayList<>();
+        for (Entity entity : mc.world.getEntities()) {
+            if (entity == mc.player || entity == mc.player.getVehicle() || entity.isRemoved() || entity.isSpectator()) continue;
+            if (entity instanceof net.minecraft.entity.ItemEntity || entity instanceof net.minecraft.entity.ExperienceOrbEntity
+                    || entity instanceof net.minecraft.entity.projectile.ProjectileEntity) continue;
+            if (entity.squaredDistanceTo(mc.player) > 24.0 * 24.0) continue;
+            blockers.add(entity.getBoundingBox().expand(0.35));
+        }
+        for (int i = 0; i < 200; i++) {
+            velocity = velocity.add(0.0, -0.03, 0.0);
+            Vec3d next = pos.add(velocity);
+            boolean end = next.y <= surfaceY;
+            Vec3d to = next;
+            if (end) {
+                double t = (pos.y - surfaceY) / (pos.y - next.y);
+                to = new Vec3d(pos.x + (next.x - pos.x) * t, surfaceY, pos.z + (next.z - pos.z) * t);
+            }
+            BlockHitResult hit = mc.world.raycast(new RaycastContext(pos, to, RaycastContext.ShapeType.COLLIDER,
+                    RaycastContext.FluidHandling.NONE, mc.player));
+            if (hit.getType() != HitResult.Type.MISS) return false;
+            for (Box box : blockers) {
+                if (box.contains(to) || box.raycast(pos, to).isPresent()) return false;
+            }
+            if (end) return true;
+            pos = next;
+            velocity = velocity.multiply(0.92);
+        }
+        return false;
     }
 
     private static float yawTo(double dx, double dz) {
         return (float) Math.toDegrees(Math.atan2(-dx, dz));
+    }
+
+    private static final double RECENT_SPOT_RADIUS = 2.5;
+    private static final int RECENT_SPOT_MEMORY = 8;
+
+    private boolean nearRecentSpot(Vec3d spot) {
+        for (Vec3d old : recentSpots) {
+            if (Math.hypot(spot.x - old.x, spot.z - old.z) < RECENT_SPOT_RADIUS) return true;
+        }
+        return false;
+    }
+
+    private void rememberSpot(Vec3d spot) {
+        recentSpots.addLast(spot);
+        while (recentSpots.size() > RECENT_SPOT_MEMORY) recentSpots.pollFirst();
+    }
+
+    private Vec3d chooseRandomSpot(Vec3d from) {
+        double min = hookMoveDistance.get() + 1.0;
+        double max = Math.max(min, hookMoveMaxDistance.get() + 1.0);
+        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
+        for (int pass = 0; pass < 2; pass++) {
+            for (int i = 0; i < 40; i++) {
+                double angle = random.nextDouble() * Math.PI * 2.0;
+                double distance = min + random.nextDouble() * (max - min);
+                Vec3d candidate = from.add(Math.cos(angle) * distance, 0, Math.sin(angle) * distance);
+                if (pass == 0 && (nearRecentSpot(candidate) || Math.hypot(candidate.x - from.x, candidate.z - from.z) < RECENT_SPOT_RADIUS)) continue;
+                if (!usableSpot(candidate)) continue;
+                double toX = candidate.x - mc.player.getX();
+                double toZ = candidate.z - mc.player.getZ();
+                float toYaw = yawTo(toX, toZ);
+                Float toPitch = solvePitch(toYaw, Math.hypot(toX, toZ), candidate.y + 0.2);
+                if (toPitch == null || !flightClear(toYaw, toPitch, candidate.y + 0.2)) continue;
+                rememberSpot(from);
+                rememberSpot(candidate);
+                return candidate;
+            }
+        }
+        return null;
     }
 
     private Vec3d chooseNeighbor(Vec3d from) {
@@ -1017,7 +1842,25 @@ public class SixToolsAutoFish extends Module {
         return null;
     }
 
+    private static final double BLOCKED_SPOT_RADIUS = 3.0;
+    private static final int MAX_BLOCKED_SPOTS = 32;
+    private static final int MAX_BLOCKED_RECASTS = 4;
+
+    private boolean nearBlockedSpot(Vec3d spot) {
+        for (Vec3d blocked : blockedSpots) {
+            if (Math.hypot(spot.x - blocked.x, spot.z - blocked.z) < BLOCKED_SPOT_RADIUS) return true;
+        }
+        return false;
+    }
+
+    private void blockSpot(Vec3d spot) {
+        if (nearBlockedSpot(spot)) return;
+        blockedSpots.add(spot);
+        while (blockedSpots.size() > MAX_BLOCKED_SPOTS) blockedSpots.remove(0);
+    }
+
     private boolean usableSpot(Vec3d spot) {
+        if (nearBlockedSpot(spot)) return false;
         if (!waterAround(spot)) return false;
         double dx = spot.x - mc.player.getX();
         double dz = spot.z - mc.player.getZ();
@@ -1031,13 +1874,13 @@ public class SixToolsAutoFish extends Module {
         int z = MathHelper.floor(spot.z);
         int y = MathHelper.floor(spot.y - 0.2);
         return isWater(new BlockPos(x, y, z)) && isWater(new BlockPos(x + 1, y, z)) && isWater(new BlockPos(x - 1, y, z))
-            && isWater(new BlockPos(x, y, z + 1)) && isWater(new BlockPos(x, y, z - 1));
+                && isWater(new BlockPos(x, y, z + 1)) && isWater(new BlockPos(x, y, z - 1));
     }
 
     private void ensureLookChanged(boolean relocating) {
         if (Float.isNaN(lastCastYaw)) return;
         boolean same = Math.abs(MathHelper.wrapDegrees(mc.player.getYaw() - lastCastYaw)) < 0.5f
-            && Math.abs(mc.player.getPitch() - lastCastPitch) < 0.5f;
+                && Math.abs(mc.player.getPitch() - lastCastPitch) < 0.5f;
         if (!same) return;
         float amount = relocating ? relocateNudge : lookAroundDegrees.get().floatValue();
         mc.player.setYaw(mc.player.getYaw() + castNudgeSign * amount);
@@ -1157,6 +2000,7 @@ public class SixToolsAutoFish extends Module {
     }
 
     private void adviseBoat() {
+        if (noBoatsMode()) return;
         if (mc.player.hasVehicle()) {
             lastAdviceTick = -ADVICE_INTERVAL_TICKS;
             return;
@@ -1182,7 +2026,26 @@ public class SixToolsAutoFish extends Module {
 
         if (hook.getHookedEntity() != null) {
 
-            if (++hookedTicks >= 10 && tickCounter - lastReelTick >= retryInterval.get()) {
+            Entity hooked = hook.getHookedEntity();
+            if (hooked != mc.player && hooked != mc.player.getVehicle() && hook.getId() != blockedHookId) {
+                blockedHookId = hook.getId();
+                blockSpot(hook.getEntityPos());
+                if (lastHookPos != null) blockSpot(lastHookPos);
+                playerHooks++;
+                if (!silent.get() && notifySpot.get() && tickCounter - lastHookedMsgTick >= 60) {
+                    lastHookedMsgTick = tickCounter;
+                    info("Hooked %s (%d times) - that spot is blocked until you reconnect.", hooked.getName().getString(), playerHooks);
+                }
+                if (playerHooks > hooksBeforeRandom.get()) {
+                    if (!randomForced) {
+                        randomForced = true;
+                        if (!silent.get() && notifySpot.get()) info("Hooked entities %d times - moving 100%% randomly until you reconnect.", playerHooks);
+                    }
+
+                    if (nextShoreTick - tickCounter > 60) nextShoreTick = tickCounter + 20;
+                }
+            }
+            if (++hookedTicks >= 4 && tickCounter - lastReelTick >= retryInterval.get()) {
                 lastReelTick = tickCounter;
                 if (debug.get() && !silent.get()) info("Bobber is hooked on an entity, reeling in.");
                 useRod();
@@ -1193,8 +2056,23 @@ public class SixToolsAutoFish extends Module {
 
         if (hook.isTouchingWater() || isWater(hook.getBlockPos())) hookTouchedWater = true;
 
+        if (!blockedSpots.isEmpty() && !verifySpot && !needNewSpot && hook.getId() != reeledHookId && hookAge >= 10 && hook.isTouchingWater()) {
+            if (nearBlockedSpot(hook.getEntityPos())) {
+                if (blockedRecasts < MAX_BLOCKED_RECASTS && tickCounter - lastReelTick >= CAST_COOLDOWN_TICKS) {
+                    blockedRecasts++;
+                    if (debug.get() && !silent.get()) info("Bobber landed on a blocked spot, casting again.");
+                    lastReelTick = tickCounter;
+                    lastCastTick = tickCounter;
+                    useRod();
+                    return;
+                }
+            } else {
+                blockedRecasts = 0;
+            }
+        }
+
         if (!hookTouchedWater && !verifySpot && hookAge >= LAND_CHECK_TICKS && hook.isOnGround()
-            && tickCounter - lastReelTick >= CAST_COOLDOWN_TICKS) {
+                && tickCounter - lastReelTick >= CAST_COOLDOWN_TICKS) {
             if (debug.get() && !silent.get()) info("Bobber landed on solid ground, recasting.");
             lastReelTick = tickCounter;
             lastCastTick = tickCounter;
@@ -1206,11 +2084,11 @@ public class SixToolsAutoFish extends Module {
         if (detectFlag.get() && ((FishingBobberAccessor) hook).sixtools$hasCaughtFish()) {
             signal = "flag";
         } else if (detectSound.get() && tickCounter - splashTick <= SPLASH_WINDOW_TICKS
-            && (splashEntityId == hook.getId()
-            || (splashEntityId == -1 && hook.squaredDistanceTo(splashX, splashY, splashZ) <= SPLASH_RADIUS_SQ))) {
+                && (splashEntityId == hook.getId()
+                || (splashEntityId == -1 && hook.squaredDistanceTo(splashX, splashY, splashZ) <= SPLASH_RADIUS_SQ))) {
             signal = "sound";
         } else if (detectDip.get() && hookAge > DIP_MIN_AGE_TICKS && dy < -dipThreshold.get()
-            && (hook.isTouchingWater() || isWater(hook.getBlockPos()))) {
+                && (hook.isTouchingWater() || isWater(hook.getBlockPos()))) {
             signal = "dip";
         }
 
@@ -1249,6 +2127,740 @@ public class SixToolsAutoFish extends Module {
         lastReelTick = tickCounter;
         if (debug.get() && !silent.get()) info("Bobber still out, retry %d/%d.", retries, maxRetries.get());
         useRod();
+    }
+
+    public enum RecoveryState {
+        IDLE, FISHING, DISCONNECTED, RECONNECTING, WAITING_FOR_WORLD,
+        NAVIGATING, SEARCHING_FOR_BOAT, ENTERING_BOAT, RESUMING_FISHING, ERROR
+    }
+
+    private record Msg(int level, String text) {}
+
+    private static final long STABLE_SESSION_MS = 30_000;
+    private static final long MAX_RECONNECT_BACKOFF_MS = 120_000;
+    private static final long CONNECT_HARD_TIMEOUT_MS = 90_000;
+    private static final long CONNECT_SCREEN_GRACE_MS = 1_500;
+    private static final long WORLD_WAIT_TIMEOUT_MS = 60_000;
+    private static final int WORLD_SETTLE_TICKS = 40;
+    private static final double ARRIVAL_HORIZONTAL = 1.5;
+    private static final double ARRIVAL_VERTICAL = 2.0;
+    private static final double BOAT_REACH = 4.0;
+    private static final long ENTER_WAIT_MS = 1_000;
+    private static final int MAX_ENTER_ATTEMPTS = 4;
+    private static final long BOAT_APPROACH_TIMEOUT_MS = 20_000;
+    private static final long BOAT_BLACKLIST_MS = 60_000;
+    private static final long REPEAT_MESSAGE_MS = 30_000;
+    private static final int RESUME_SETTLE_TICKS = 10;
+
+    private RecoveryState state = RecoveryState.IDLE;
+    private long stateSince;
+    private long nextActionAt;
+    private int recoveryTicks;
+
+    private ServerInfo lastServerInfo;
+    private ServerAddress lastServerAddress;
+    private int reconnectFailures;
+    private long joinedAt;
+    private boolean manualCheckPending;
+    private boolean announceDisconnect;
+    private int leftTick;
+    private boolean connectIssued;
+    private long connectIssuedAt;
+
+    private int worldReadyTicks;
+    private boolean manualWalking;
+    private long navStartedAt;
+    private boolean recording;
+    private boolean recordingNb;
+    private final List<double[]> recordedPath = new ArrayList<>();
+    private boolean recordJumpHeld;
+    private List<double[]> route;
+    private int routeIdx;
+    private long routeProgressAt;
+    private Vec3d routeProgressPos = Vec3d.ZERO;
+    private int routeStuck;
+
+    private long boatPhaseStartedAt;
+    private int targetBoatId = -1;
+    private long targetStartedAt;
+    private int enterAttempts;
+    private int approachIssues;
+    private int approachFailures;
+    private final Map<Integer, Long> boatBlacklist = new HashMap<>();
+    private long lastRepeatMessageAt;
+    private int resumeTicks;
+    private int noWorldTicks;
+    private boolean noBoatResume;
+
+    private final ArrayDeque<Msg> pendingMessages = new ArrayDeque<>();
+
+    private void setState(RecoveryState next) {
+        if (state == next) return;
+        SixToolsAddon.LOG.info("[AutoFish recovery] {} -> {}", state, next);
+        state = next;
+        stateSince = System.currentTimeMillis();
+        if (pendingMessages.size() >= 20) pendingMessages.pollFirst();
+        pendingMessages.addLast(new Msg(0, "Recovery state: " + next));
+        flushMessages();
+    }
+
+    private static boolean isBoat(Entity entity) {
+        return entity instanceof BoatEntity || entity instanceof ChestBoatEntity;
+    }
+
+    private static boolean boatFree(Entity boat) {
+        List<Entity> riders = boat.getPassengerList();
+        for (Entity rider : riders) {
+            if (rider instanceof PlayerEntity) return false;
+        }
+        return riders.size() < (boat instanceof ChestBoatEntity ? 1 : 2);
+    }
+
+    private void notifyUser(int level, String text) {
+        SixToolsAddon.LOG.info("[AutoFish recovery] {}", text);
+        if (silent.get() || !notifyRecovery.get()) return;
+        if (pendingMessages.size() >= 20) pendingMessages.pollFirst();
+        pendingMessages.addLast(new Msg(level, text));
+        flushMessages();
+    }
+
+    private void notifyRepeating(int level, String text, long now) {
+        if (now - lastRepeatMessageAt < REPEAT_MESSAGE_MS) return;
+        lastRepeatMessageAt = now;
+        notifyUser(level, text);
+    }
+
+    private void flushMessages() {
+        if (pendingMessages.isEmpty() || mc.world == null || mc.player == null) return;
+        Msg message;
+        while ((message = pendingMessages.pollFirst()) != null) {
+            switch (message.level()) {
+                case 2 -> error("%s", message.text());
+                case 1 -> warning("%s", message.text());
+                default -> info("%s", message.text());
+            }
+        }
+    }
+
+    @EventHandler
+    private void onGameJoined(GameJoinedEvent event) {
+        blockedSpots.clear();
+        playerHooks = 0;
+        randomForced = false;
+        blockedHookId = -1;
+        blockedRecasts = 0;
+        if (!isActive()) return;
+        joinedAt = System.currentTimeMillis();
+        captureServer();
+        switch (state) {
+            case DISCONNECTED, RECONNECTING -> {
+                notifyUser(0, "Reconnection successful.");
+                beginWaitingForWorld();
+            }
+            case WAITING_FOR_WORLD -> { }
+            case NAVIGATING, SEARCHING_FOR_BOAT, ENTERING_BOAT, RESUMING_FISHING -> beginWaitingForWorld();
+            case IDLE, FISHING -> {
+                resetFishState();
+                setState(RecoveryState.FISHING);
+            }
+            case ERROR -> { }
+        }
+    }
+
+    @EventHandler
+    private void onGameLeft(GameLeftEvent event) {
+        if (!isActive()) return;
+        handleDisconnect();
+    }
+
+    private void handleDisconnect() {
+
+        if (state == RecoveryState.IDLE || state == RecoveryState.DISCONNECTED || state == RecoveryState.RECONNECTING) return;
+
+        long now = System.currentTimeMillis();
+        cancelOwnNav();
+        stopMove();
+        pendingBlocks = 0;
+        targetBoatId = -1;
+
+        if (!autoReconnect.get()) {
+            setState(RecoveryState.IDLE);
+            return;
+        }
+        if (lastServerInfo == null || lastServerAddress == null) {
+            notifyUser(1, "Disconnected, but there is no multiplayer server to reconnect to (single player or unknown server).");
+            setState(RecoveryState.IDLE);
+            return;
+        }
+
+        boolean quickDrop = joinedAt != 0 && now - joinedAt < STABLE_SESSION_MS;
+        reconnectFailures = quickDrop ? reconnectFailures + 1 : 0;
+        joinedAt = 0;
+        int max = maxReconnectAttempts.get();
+        if (max > 0 && reconnectFailures >= max) {
+            fatal("Disconnected " + reconnectFailures + " times in a row shortly after joining.");
+            return;
+        }
+
+        setState(RecoveryState.DISCONNECTED);
+        nextActionAt = now + backoffMs();
+        manualCheckPending = ignoreManualDisconnect.get();
+        announceDisconnect = true;
+        leftTick = recoveryTicks;
+        if (!manualCheckPending) announceDisconnect(now);
+    }
+
+    private void announceDisconnect(long now) {
+        announceDisconnect = false;
+        long seconds = Math.max(0, (nextActionAt - now + 999) / 1000);
+        notifyUser(1, "Disconnected - reconnecting in " + seconds + "s.");
+    }
+
+    private long backoffMs() {
+        long base = reconnectDelay.get() * 1000L;
+        long cap = Math.max(base, MAX_RECONNECT_BACKOFF_MS);
+        return Math.min(cap, base << Math.min(reconnectFailures, 5));
+    }
+
+    private void captureServer() {
+        ServerInfo info = mc.getCurrentServerEntry();
+        if (info == null) return;
+        try {
+            lastServerAddress = ServerAddress.parse(info.address);
+            lastServerInfo = info;
+        } catch (Throwable t) {
+            gamerguy11.sixtoolsaddon.utils.Swallowed.log("SixToolsAutoFish:captureServer", t);
+        }
+    }
+
+    private void beginWaitingForWorld() {
+        cancelOwnNav();
+        targetBoatId = -1;
+        boatBlacklist.clear();
+        noBoatResume = false;
+        worldReadyTicks = 0;
+        navStartedAt = 0;
+        stopMove();
+        pendingBlocks = 0;
+        setState(RecoveryState.WAITING_FOR_WORLD);
+    }
+
+    private void fatal(String reason) {
+        cancelOwnNav();
+        targetBoatId = -1;
+        notifyUser(2, reason + " Auto Fish recovery stopped; fishing stays paused until you toggle the module or the next disconnect.");
+        setState(RecoveryState.ERROR);
+    }
+
+    private void resetRecovery() {
+        cancelOwnNav();
+        pendingMessages.clear();
+        boatBlacklist.clear();
+        targetBoatId = -1;
+        reconnectFailures = 0;
+        joinedAt = 0;
+        manualCheckPending = false;
+        announceDisconnect = false;
+        connectIssued = false;
+        navStartedAt = 0;
+        recoveryTicks = 0;
+        setState(RecoveryState.IDLE);
+    }
+
+    private void cancelOwnNav() {
+        route = null;
+        stopManualWalk();
+    }
+
+    private void walkToward(Entity target) {
+        walkToward(target.getEntityPos(), false);
+    }
+
+    public static volatile boolean forceWalk;
+    public static volatile boolean forceJump;
+
+    private void walkToward(Vec3d to, boolean forceJump) {
+        Vec3d from = mc.player.getEntityPos();
+        double dx = to.x - from.x;
+        double dz = to.z - from.z;
+        mc.player.setYaw((float) Math.toDegrees(-Math.atan2(dx, dz)));
+        boolean grounded = mc.player.isOnGround();
+        SixToolsAutoFish.forceJump = (mc.player.horizontalCollision && grounded) || mc.player.isTouchingWater() || forceJump;
+        SixToolsAutoFish.forceWalk = true;
+        manualWalking = true;
+    }
+
+    private void stopManualWalk() {
+        manualWalking = false;
+        forceWalk = false;
+        forceJump = false;
+    }
+
+    private static final Path PATH_FILE_NORMAL = FabricLoader.getInstance().getConfigDir().resolve("sixtoolsaddon").resolve("AutoFishPath.txt");
+    private static final Path PATH_FILE_NO_BOATS = FabricLoader.getInstance().getConfigDir().resolve("sixtoolsaddon").resolve("AutoFishPathNoBoats.txt");
+
+    private static Path pathFile(boolean nb) {
+        return nb ? PATH_FILE_NO_BOATS : PATH_FILE_NORMAL;
+    }
+    private static final double RECORD_STEP = 0.35;
+    private static final double ROUTE_REACH = 0.6;
+    private static final long ROUTE_STALL_MS = 4_000;
+
+    private void startRecording(boolean nb) {
+        if (mc.player == null) {
+            error("Join a world first: recording follows where you walk.");
+            return;
+        }
+        recordedPath.clear();
+        recordJumpHeld = false;
+        recording = true;
+        recordingNb = nb;
+        info("Recording started - walk to your fishing spot, then press Stop recording.");
+    }
+
+    private void stopRecording() {
+        if (!recording) return;
+        recording = false;
+        if (recordedPath.size() < 2) {
+            warning("Recording too short - nothing saved.");
+            return;
+        }
+        savePath(recordedPath, recordingNb);
+        double[] last = recordedPath.get(recordedPath.size() - 1);
+        destSetting(recordingNb).set(BlockPos.ofFloored(last[0], last[1], last[2]));
+        destSetSetting(recordingNb).set(true);
+        info("Path saved with %d points. After a reconnect it will be walked again.", recordedPath.size());
+    }
+
+    private void tickRecording() {
+        if (!recording || mc.player == null || mc.world == null || mc.options == null) return;
+        Vec3d p = mc.player.getEntityPos();
+        boolean jumpNow = mc.options.jumpKey.isPressed();
+        boolean changed = jumpNow != recordJumpHeld;
+        recordJumpHeld = jumpNow;
+        double j = jumpNow ? 1 : 0;
+        if (recordedPath.isEmpty()) {
+            recordedPath.add(new double[]{p.x, p.y, p.z, j});
+            return;
+        }
+        double[] last = recordedPath.get(recordedPath.size() - 1);
+        double moved = Math.sqrt((p.x - last[0]) * (p.x - last[0]) + (p.y - last[1]) * (p.y - last[1]) + (p.z - last[2]) * (p.z - last[2]));
+        if (changed || moved >= RECORD_STEP) recordedPath.add(new double[]{p.x, p.y, p.z, j});
+    }
+
+    private void savePath(List<double[]> points, boolean nb) {
+        try {
+            Files.createDirectories(pathFile(nb).getParent());
+            StringBuilder sb = new StringBuilder();
+            for (double[] pt : points) sb.append(pt[0]).append(' ').append(pt[1]).append(' ').append(pt[2]).append(' ').append((int) pt[3]).append('\n');
+            Files.writeString(pathFile(nb), sb.toString());
+        } catch (IOException e) {
+            error("Failed to save path: %s", e.getMessage());
+        }
+    }
+
+    private List<double[]> loadPath(boolean nb) {
+        List<double[]> points = new ArrayList<>();
+        try {
+            if (!Files.exists(pathFile(nb))) return points;
+            for (String line : Files.readAllLines(pathFile(nb))) {
+                String[] parts = line.trim().split(" ");
+                if (parts.length < 4) continue;
+                points.add(new double[]{Double.parseDouble(parts[0]), Double.parseDouble(parts[1]), Double.parseDouble(parts[2]), Double.parseDouble(parts[3])});
+            }
+        } catch (IOException | NumberFormatException e) {
+            points.clear();
+        }
+        return points;
+    }
+
+    private void clearPath(boolean nb) {
+        recording = false;
+        recordedPath.clear();
+        try {
+            Files.deleteIfExists(pathFile(nb));
+        } catch (IOException e) {
+            error("Failed to delete path: %s", e.getMessage());
+        }
+    }
+
+    private boolean pathSaved(boolean nb) {
+        return Files.exists(pathFile(nb));
+    }
+
+    private void buildRoute(long now) {
+        List<double[]> points = loadPath(noBoatsMode());
+        if (points.size() < 2) {
+            BlockPos d = destination.get();
+            points = new ArrayList<>();
+            points.add(new double[]{d.getX() + 0.5, d.getY(), d.getZ() + 0.5, 0});
+        }
+        route = points;
+        routeIdx = 0;
+        routeProgressAt = now;
+        routeProgressPos = mc.player.getEntityPos();
+        routeStuck = 0;
+        double[] first = points.get(routeIdx);
+        info("Route: %d points, starting at point %d, %.1f blocks away.", points.size(), routeIdx, Math.hypot(mc.player.getX() - first[0], mc.player.getZ() - first[2]));
+    }
+
+    private void tickRecovery() {
+        long now = System.currentTimeMillis();
+        switch (state) {
+            case IDLE, ERROR -> { }
+            case FISHING -> {
+                if (noWorldDisconnect()) return;
+                if (reconnectFailures > 0 && joinedAt != 0 && now - joinedAt >= STABLE_SESSION_MS) reconnectFailures = 0;
+            }
+            case DISCONNECTED -> { recoveryTicks++; tickDisconnected(now); }
+            case RECONNECTING -> { recoveryTicks++; tickReconnecting(now); }
+            case WAITING_FOR_WORLD -> { recoveryTicks++; if (!noWorldDisconnect()) tickWaitingForWorld(now); }
+            case NAVIGATING -> { recoveryTicks++; if (!noWorldDisconnect()) tickNavigating(now); }
+            case SEARCHING_FOR_BOAT -> { recoveryTicks++; if (!noWorldDisconnect()) tickSearching(now); }
+            case ENTERING_BOAT -> { recoveryTicks++; if (!noWorldDisconnect()) tickEnteringBoat(now); }
+            case RESUMING_FISHING -> { recoveryTicks++; if (!noWorldDisconnect()) tickResuming(); }
+        }
+    }
+
+    private boolean noWorldDisconnect() {
+        if (mc.world != null || mc.player != null) {
+            noWorldTicks = 0;
+            return false;
+        }
+        if (++noWorldTicks < 5) return false;
+        noWorldTicks = 0;
+        SixToolsAddon.LOG.info("[AutoFish recovery] world vanished without a leave event, starting recovery");
+        handleDisconnect();
+        return true;
+    }
+
+    private void tickDisconnected(long now) {
+        if (manualCheckPending) {
+            if (recoveryTicks - leftTick < 3) return;
+            manualCheckPending = false;
+
+            Screen screen = mc.currentScreen;
+            if (screen instanceof TitleScreen || (screen != null && screen.getClass().getSimpleName().equals("MultiplayerScreen"))) {
+                notifyUser(0, "You disconnected manually - not reconnecting. Rejoin to continue fishing normally.");
+                announceDisconnect = false;
+                setState(RecoveryState.IDLE);
+                return;
+            }
+        }
+        if (announceDisconnect) announceDisconnect(now);
+        if (now < nextActionAt) return;
+        setState(RecoveryState.RECONNECTING);
+        connectIssued = false;
+        connectIssuedAt = now;
+    }
+
+    private void tickReconnecting(long now) {
+        if (!connectIssued) {
+            if (mc.world != null && mc.player != null) return;
+            if (!(mc.currentScreen instanceof ConnectScreen)) {
+                if (lastServerInfo == null || lastServerAddress == null) {
+                    onReconnectFailed("no saved server details", now);
+                    return;
+                }
+                try {
+                    ConnectScreen.connect(new TitleScreen(), mc, lastServerAddress, lastServerInfo, false, null);
+                } catch (Throwable t) {
+                    gamerguy11.sixtoolsaddon.utils.Swallowed.log("SixToolsAutoFish:reconnect", t);
+                    onReconnectFailed("could not start the connection", now);
+                    return;
+                }
+            }
+            connectIssued = true;
+            connectIssuedAt = now;
+            notifyUser(0, "Reconnecting to " + lastServerInfo.address + "...");
+            return;
+        }
+
+        if (mc.currentScreen instanceof ConnectScreen) {
+            if (now - connectIssuedAt > CONNECT_HARD_TIMEOUT_MS) {
+                mc.setScreen(new TitleScreen());
+                onReconnectFailed("timed out", now);
+            }
+            return;
+        }
+
+        if (now - connectIssuedAt > CONNECT_SCREEN_GRACE_MS && (mc.world == null || mc.player == null)) {
+            onReconnectFailed("connection failed", now);
+        }
+    }
+
+    private void onReconnectFailed(String reason, long now) {
+        reconnectFailures++;
+        connectIssued = false;
+        int max = maxReconnectAttempts.get();
+        if (max > 0 && reconnectFailures >= max) {
+            fatal("Reconnection failed " + reconnectFailures + " times (" + reason + ").");
+            return;
+        }
+        nextActionAt = now + backoffMs();
+        manualCheckPending = false;
+        announceDisconnect = false;
+        setState(RecoveryState.DISCONNECTED);
+        notifyUser(1, "Reconnection failed (" + reason + "); retrying in " + Math.max(0, (nextActionAt - now) / 1000) + "s"
+                + (max > 0 ? " (attempt " + (reconnectFailures + 1) + "/" + max + ")." : "."));
+    }
+
+    private boolean worldReady() {
+        if (mc.player == null || mc.world == null || !mc.player.isAlive()) return false;
+        if (mc.currentScreen instanceof LevelLoadingScreen) return false;
+        return mc.world.getChunkManager().isChunkLoaded(mc.player.getBlockX() >> 4, mc.player.getBlockZ() >> 4);
+    }
+
+    private void tickWaitingForWorld(long now) {
+        if (!worldReady()) {
+            worldReadyTicks = 0;
+            if (now - stateSince > WORLD_WAIT_TIMEOUT_MS) fatal("The world did not finish loading after reconnecting.");
+            return;
+        }
+        if (++worldReadyTicks < WORLD_SETTLE_TICKS) return;
+
+        Entity ride = mc.player.getVehicle();
+        if (!noBoatsMode() && ride != null && isBoat(ride)) {
+            notifyUser(0, "Already riding a boat - resuming fishing.");
+            resumeTicks = 0;
+            setState(RecoveryState.RESUMING_FISHING);
+            return;
+        }
+        boolean nb = noBoatsMode();
+        if (!destinationSet.get() && !pathSaved(nb)) {
+            if (nb) {
+                notifyUser(1, "No no-boats path recorded and no no-boats destination configured - skipping navigation and fishing from here.");
+                resumeWithoutBoat();
+            } else {
+                notifyUser(1, "No path recorded and no destination configured - skipping navigation and searching for a boat near your current position.");
+                beginBoatPhase(now);
+            }
+            return;
+        }
+        navStartedAt = now;
+        route = null;
+        notifyUser(0, pathSaved(nb) ? "Walking the recorded path." : "Walking to the saved position " + formatPos(destination.get()) + ".");
+        setState(RecoveryState.NAVIGATING);
+    }
+
+    private boolean atDestination() {
+        BlockPos d = destination.get();
+        double dx = mc.player.getX() - (d.getX() + 0.5);
+        double dz = mc.player.getZ() - (d.getZ() + 0.5);
+        return Math.hypot(dx, dz) <= ARRIVAL_HORIZONTAL && Math.abs(mc.player.getY() - d.getY()) <= ARRIVAL_VERTICAL;
+    }
+
+    private void tickNavigating(long now) {
+        if (mc.player == null || mc.world == null) return;
+        if (atDestination()) {
+            cancelOwnNav();
+            if (noBoatsMode()) {
+                notifyUser(0, "Destination reached - resuming fishing.");
+                resumeWithoutBoat();
+                return;
+            }
+            notifyUser(0, "Destination reached - searching for a boat.");
+            beginBoatPhase(now);
+            return;
+        }
+        int timeout = navigationTimeout.get();
+        if (timeout > 0 && now - navStartedAt > timeout * 1000L) {
+            fatal("Navigation timed out after " + timeout + "s.");
+            return;
+        }
+        if (route == null) buildRoute(now);
+        Vec3d p = mc.player.getEntityPos();
+        while (routeIdx < route.size() - 1) {
+            double[] c = route.get(routeIdx);
+            if (Math.hypot(p.x - c[0], p.z - c[2]) < ROUTE_REACH && Math.abs(p.y - c[1]) < 1.6) routeIdx++;
+            else break;
+        }
+        if (mc.player.hasVehicle()) mc.player.stopRiding();
+        double[] target = route.get(routeIdx);
+        boolean nearJump = target[3] > 0.5;
+        walkToward(new Vec3d(target[0], target[1], target[2]), nearJump);
+        if (now - routeProgressAt >= ROUTE_STALL_MS) {
+            boolean stuck = p.squaredDistanceTo(routeProgressPos) < 0.25;
+            routeProgressAt = now;
+            routeProgressPos = p;
+            if (stuck) {
+                routeStuck++;
+                SixToolsAddon.LOG.info("[AutoFish recovery] stuck #{} pos={} target={} idx={}/{} screen={} vehicle={}", routeStuck, p, java.util.Arrays.toString(target), routeIdx, route.size(), mc.currentScreen, mc.player.getVehicle());
+                if (routeStuck >= 6) {
+                    fatal("Got stuck while walking back to the saved position.");
+                    return;
+                }
+                if (routeIdx < route.size() - 1) routeIdx++;
+                forceJump = true;
+            } else {
+                routeStuck = 0;
+            }
+        }
+    }
+
+    private void resumeWithoutBoat() {
+        cancelOwnNav();
+        targetBoatId = -1;
+        noBoatResume = true;
+        resumeTicks = 0;
+        setState(RecoveryState.RESUMING_FISHING);
+    }
+
+    private void beginBoatPhase(long now) {
+        boatPhaseStartedAt = now;
+        noBoatResume = false;
+        boatBlacklist.clear();
+        targetBoatId = -1;
+        nextActionAt = 0;
+        setState(RecoveryState.SEARCHING_FOR_BOAT);
+    }
+
+    private boolean boatPhaseTimedOut(long now) {
+        int timeout = boatTimeout.get();
+        if (timeout > 0 && now - boatPhaseStartedAt > timeout * 1000L) {
+            if (!fishWithoutBoat.get()) {
+                fatal("No boat could be entered within " + timeout + "s.");
+                return true;
+            }
+            cancelOwnNav();
+            targetBoatId = -1;
+            noBoatResume = true;
+            resumeTicks = 0;
+            notifyUser(1, "No empty boat could be entered - fishing from the saved position without one.");
+            setState(RecoveryState.RESUMING_FISHING);
+            return true;
+        }
+        return false;
+    }
+
+    private void tickSearching(long now) {
+        if (mc.player == null || mc.world == null) return;
+        Entity ride = mc.player.getVehicle();
+        if (ride != null && isBoat(ride)) {
+            boatEntered();
+            return;
+        }
+        if (boatPhaseTimedOut(now) || now < nextActionAt) return;
+        nextActionAt = now + searchIntervalSeconds.get() * 1000L;
+
+        Entity boat = findBoat(now);
+        if (boat == null) {
+            notifyRepeating(0, "No suitable boat found - continuing search.", now);
+            return;
+        }
+        targetBoatId = boat.getId();
+        targetStartedAt = now;
+        enterAttempts = 0;
+        approachIssues = 0;
+        approachFailures = 0;
+        nextActionAt = 0;
+        notifyUser(0, "Boat found - attempting to enter.");
+        setState(RecoveryState.ENTERING_BOAT);
+    }
+
+    private Entity findBoat(long now) {
+        double radius = boatSearchRadius.get();
+        double radiusSq = radius * radius;
+        boatBlacklist.values().removeIf(until -> until <= now);
+        Entity best = null;
+        double bestDistance = Double.MAX_VALUE;
+        for (Entity entity : mc.world.getEntities()) {
+            if (!isBoat(entity) || entity.isRemoved() || !boatFree(entity)) continue;
+            if (boatBlacklist.containsKey(entity.getId())) continue;
+            double distance = entity.squaredDistanceTo(mc.player);
+            if (distance > radiusSq || distance >= bestDistance) continue;
+            best = entity;
+            bestDistance = distance;
+        }
+        return best;
+    }
+
+    private double reachDistance(Entity entity) {
+        Box box = entity.getBoundingBox();
+        Vec3d eye = mc.player.getEyePos();
+        double dx = Math.max(Math.max(box.minX - eye.x, 0.0), eye.x - box.maxX);
+        double dy = Math.max(Math.max(box.minY - eye.y, 0.0), eye.y - box.maxY);
+        double dz = Math.max(Math.max(box.minZ - eye.z, 0.0), eye.z - box.maxZ);
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    private void dropTarget(boolean blacklist, long now) {
+        if (blacklist && targetBoatId != -1) boatBlacklist.put(targetBoatId, now + BOAT_BLACKLIST_MS);
+        cancelOwnNav();
+        targetBoatId = -1;
+        nextActionAt = now + searchIntervalSeconds.get() * 1000L;
+        if (blacklist) notifyRepeating(1, "Could not enter that boat - searching for another one.", now);
+        setState(RecoveryState.SEARCHING_FOR_BOAT);
+    }
+
+    private void tickEnteringBoat(long now) {
+        if (mc.player == null || mc.world == null) return;
+        Entity ride = mc.player.getVehicle();
+        if (ride != null && isBoat(ride)) {
+            boatEntered();
+            return;
+        }
+        if (boatPhaseTimedOut(now)) return;
+
+        Entity boat = mc.world.getEntityById(targetBoatId);
+        if (boat == null || boat.isRemoved() || !boatFree(boat)) {
+            dropTarget(false, now);
+            return;
+        }
+        if (now < nextActionAt) return;
+
+        if (reachDistance(boat) <= BOAT_REACH) {
+            cancelOwnNav();
+            if (enterAttempts >= MAX_ENTER_ATTEMPTS) {
+                dropTarget(true, now);
+                return;
+            }
+            enterAttempts++;
+            Rotations.rotate(Rotations.getYaw(boat), Rotations.getPitch(boat), -100, () -> {
+                net.minecraft.util.hit.EntityHitResult location = new net.minecraft.util.hit.EntityHitResult(boat, boat.getBoundingBox().getCenter());
+                mc.interactionManager.interactEntityAtLocation(mc.player, boat, location, Hand.MAIN_HAND);
+                mc.interactionManager.interactEntity(mc.player, boat, Hand.MAIN_HAND);
+            });
+            nextActionAt = now + ENTER_WAIT_MS;
+            return;
+        }
+
+        if (now - targetStartedAt > BOAT_APPROACH_TIMEOUT_MS) {
+            dropTarget(true, now);
+            return;
+        }
+        walkToward(boat);
+    }
+
+    private void boatEntered() {
+        cancelOwnNav();
+        targetBoatId = -1;
+        notifyUser(0, "Boat entered - resuming fishing.");
+        noBoatResume = false;
+        resumeTicks = 0;
+        setState(RecoveryState.RESUMING_FISHING);
+    }
+
+    private void tickResuming() {
+        if (mc.player == null || mc.world == null) return;
+        Entity ride = mc.player.getVehicle();
+        if (!noBoatResume && !noBoatsMode() && (ride == null || !isBoat(ride))) {
+            beginBoatPhase(System.currentTimeMillis());
+            return;
+        }
+        if (++resumeTicks < RESUME_SETTLE_TICKS) return;
+        resetFishState();
+        setState(RecoveryState.FISHING);
+    }
+
+    private static String formatPos(BlockPos pos) {
+        return pos.getX() + ", " + pos.getY() + ", " + pos.getZ();
+    }
+
+    private String destinationText(boolean nb) {
+        String label = nb ? "No-boats recovery" : "Recovery";
+        return pathSaved(nb) ? label + ": recorded path (" + loadPath(nb).size() + " points)"
+                : destSetSetting(nb).get() ? label + " position: " + formatPos(destSetting(nb).get()) : label + " position: not set";
     }
 
     private void useRod() {

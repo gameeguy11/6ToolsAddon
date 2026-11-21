@@ -26,8 +26,4 @@ public enum SoundType {
       this.defaultVolume = defaultVolume;
       this.defaultCooldownMs = defaultCooldownMs;
    }
-
-   private static SoundType[] $values() {
-      return new SoundType[]{GUI_HOVER, GUI_CLICK_LEFT, GUI_CLICK_RIGHT, MODULE_ON, MODULE_OFF, TYPING, CHAT_KEYWORD, ENEMY_SPOTTED, DEATH};
-   }
 }

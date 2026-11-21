@@ -13,7 +13,6 @@ import meteordevelopment.meteorclient.commands.Command;
 import meteordevelopment.meteorclient.systems.modules.Modules;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.command.CommandSource;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.Identifier;
 import net.minecraft.registry.Registries;

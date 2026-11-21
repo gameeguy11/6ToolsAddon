@@ -183,7 +183,7 @@ public final class AutoWaspFlightController {
 
         double maxHorizontal = Math.min(resolveHorizontalCap(), horizontalRamp.speed());
         double maxVertical = Math.min(module.verticalMaxSpeed(),
-            verticalRamp.engaged() ? verticalRamp.speed() : AutoWaspSpeed.VERTICAL_START);
+            verticalRamp.engaged() ? verticalRamp.speed() : module.verticalRampStart());
         double horizontal = toTarget.horizontalLength();
         double speed = Math.min(maxHorizontal, horizontal);
         double xVel = 0;
@@ -325,10 +325,10 @@ public final class AutoWaspFlightController {
     private void configureRamps() {
         int rewind = module.setbackRewindTicksValue();
         int hold = module.setbackHoldTicksValue();
-        horizontalRamp.configure(new AutoWaspRamp.Settings(AutoWaspSpeed.HORIZONTAL_START, AutoWaspSpeed.HORIZONTAL_TOP,
+        horizontalRamp.configure(new AutoWaspRamp.Settings(module.horizontalRampStart(), module.horizontalRampPlateau(),
             module.rampStepValue(), rewind, hold, module.horizontalMaxSpeed()));
-        verticalRamp.configure(new AutoWaspRamp.Settings(AutoWaspSpeed.VERTICAL_START, AutoWaspSpeed.VERTICAL_TOP,
-            AutoWaspSpeed.VERTICAL_STEP, rewind, hold, module.verticalMaxSpeed()));
+        verticalRamp.configure(new AutoWaspRamp.Settings(module.verticalRampStart(), module.verticalRampPlateau(),
+            module.verticalRampStep(), rewind, hold, module.verticalMaxSpeed()));
     }
 
     private void updateStuckState() {

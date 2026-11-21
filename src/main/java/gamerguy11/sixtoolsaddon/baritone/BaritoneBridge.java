@@ -34,6 +34,42 @@ public final class BaritoneBridge {
       }
    }
 
+   public static boolean isReady() {
+      if (!BaritoneCheck.isPresent()) {
+         return false;
+      }
+
+      try {
+         return Impl.isReady();
+      } catch (Throwable ignored) {
+         return false;
+      }
+   }
+
+   public static boolean isGoalActive(BlockPos pos) {
+      if (!BaritoneCheck.isPresent()) {
+         return false;
+      }
+
+      try {
+         return Impl.isGoalActive(pos);
+      } catch (Throwable ignored) {
+         return false;
+      }
+   }
+
+   public static void cancelGoal(BlockPos pos) {
+      if (!BaritoneCheck.isPresent()) {
+         return;
+      }
+
+      try {
+         Impl.cancelGoal(pos);
+      } catch (Throwable ignored) {
+         gamerguy11.sixtoolsaddon.utils.Swallowed.log("BaritoneBridge:cancelGoal", ignored);
+      }
+   }
+
    public static boolean[] getAllowBreakPlace() {
       if (!BaritoneCheck.isPresent()) {
          return null;
@@ -48,7 +84,29 @@ public final class BaritoneBridge {
       }
    }
 
+   public static Boolean getFreeLook() {
+      if (!BaritoneCheck.isPresent()) {
+         return null;
+      }
+
+      return Impl.getFreeLook();
+   }
+
+   public static void setFreeLook(boolean value) {
+      if (BaritoneCheck.isPresent()) {
+         Impl.setFreeLook(value);
+      }
+   }
+
    private static final class Impl {
+      static Boolean getFreeLook() {
+         return (Boolean)baritone.api.BaritoneAPI.getSettings().freeLook.value;
+      }
+
+      static void setFreeLook(boolean value) {
+         baritone.api.BaritoneAPI.getSettings().freeLook.value = value;
+      }
+
       static boolean isPathing() {
          return baritone.api.BaritoneAPI.getProvider().getPrimaryBaritone().getPathingBehavior().isPathing();
       }
@@ -67,6 +125,39 @@ public final class BaritoneBridge {
 
       static void getToBlock(BlockPos pos) {
          baritone.api.BaritoneAPI.getProvider().getPrimaryBaritone().getCustomGoalProcess().setGoalAndPath(new baritone.api.pathing.goals.GoalGetToBlock(pos));
+      }
+
+      static boolean isReady() {
+         baritone.api.utils.IPlayerContext ctx = baritone.api.BaritoneAPI.getProvider().getPrimaryBaritone().getPlayerContext();
+         return ctx.player() != null && ctx.world() != null;
+      }
+
+      private static BlockPos goalPos(baritone.api.pathing.goals.Goal goal) {
+         if (goal instanceof baritone.api.pathing.goals.GoalBlock block) {
+            return block.getGoalPos();
+         }
+
+         if (goal instanceof baritone.api.pathing.goals.GoalNear near) {
+            return near.getGoalPos();
+         }
+
+         return null;
+      }
+
+      static boolean isGoalActive(BlockPos pos) {
+         baritone.api.process.ICustomGoalProcess process = baritone.api.BaritoneAPI.getProvider().getPrimaryBaritone().getCustomGoalProcess();
+         return process.isActive() && pos.equals(goalPos(process.getGoal()));
+      }
+
+      static void cancelGoal(BlockPos pos) {
+         baritone.api.IBaritone bar = baritone.api.BaritoneAPI.getProvider().getPrimaryBaritone();
+         baritone.api.process.ICustomGoalProcess process = bar.getCustomGoalProcess();
+         if (!process.isActive() || !pos.equals(goalPos(process.getGoal()))) {
+            return;
+         }
+
+         process.onLostControl();
+         bar.getPathingBehavior().cancelEverything();
       }
 
       static boolean[] getAllowBreakPlace() {

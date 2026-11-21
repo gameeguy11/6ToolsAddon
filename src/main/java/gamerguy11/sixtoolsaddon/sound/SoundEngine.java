@@ -204,17 +204,39 @@ public final class SoundEngine {
       });
    }
 
+   private Path findNamed(SoundType type, String fileName) {
+      if (fileName == null || fileName.isBlank()) {
+         return null;
+      }
+
+      String wanted = fileName.trim();
+
+      for(Path p : (List<Path>)this.files.getOrDefault(type, List.of())) {
+         String name = p.getFileName().toString();
+         String noExt = name.substring(0, Math.max(0, name.lastIndexOf(46)));
+         if (name.equalsIgnoreCase(wanted) || noExt.equalsIgnoreCase(wanted)) {
+            return p;
+         }
+      }
+
+      return null;
+   }
+
+   public boolean hasFile(SoundType type, String fileName) {
+      this.refreshIfChanged(type);
+      return this.findNamed(type, fileName) != null;
+   }
+
    public void playNamed(SoundType type, String fileName, float volume, float pitch) {
       this.exec.execute(() -> {
          try {
-            for(Path p : (List<Path>)this.files.getOrDefault(type, List.of())) {
-               if (p.getFileName().toString().equalsIgnoreCase(fileName)) {
-                  this.playFile(p, volume, pitch);
-                  return;
-               }
+            this.refreshIfChanged(type);
+            Path file = this.findNamed(type, fileName);
+            if (file != null) {
+               this.playFile(file, volume, pitch);
             }
          } catch (Throwable t) {
-            SixToolsAddon.LOG.warn("Failed to preview {}", fileName, t);
+            SixToolsAddon.LOG.warn("Failed to play {}", fileName, t);
          }
 
       });
@@ -461,11 +483,7 @@ public final class SoundEngine {
    public static enum Mode {
       Random,
       Sequential,
-      Specific;
-
-      private static Mode[] $values() {
-         return new Mode[]{Random, Sequential, Specific};
-      }
+      Specific
    }
 
    private static record PcmSound(byte[] data, float sampleRate, int channels) {

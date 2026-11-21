@@ -11,7 +11,6 @@ import meteordevelopment.meteorclient.gui.widgets.input.WTextBox;
 import meteordevelopment.meteorclient.gui.widgets.pressable.WButton;
 import net.minecraft.client.gui.screen.Screen;
 
-/** Calculator + Nether/Overworld coordinate converter (ported from the RusherHack calculator plugin). */
 public class CalculatorTab extends Tab {
    public CalculatorTab() {
       super("Calculator");

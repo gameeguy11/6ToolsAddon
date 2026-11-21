@@ -91,7 +91,7 @@ public class BaseHuntAutoLog extends Module {
     );
 
     public BaseHuntAutoLog() {
-        super(SixToolsAddon.BASE_HUNTING, "hunt-autolog", "Disconnects while base hunting when the elytra is nearly broken, a player shows up, you drop too low or your health is low.");
+        super(SixToolsAddon.BASE_HUNTING, "6tools-autolog", "Disconnects while base hunting when the elytra is nearly broken, a player shows up, you drop too low or your health is low.");
     }
 
     @EventHandler

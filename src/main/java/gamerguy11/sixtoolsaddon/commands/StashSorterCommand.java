@@ -5,7 +5,6 @@ import gamerguy11.sixtoolsaddon.modules.AutoStashSorter;
 import gamerguy11.sixtoolsaddon.modules.stashsorter.data.SortArea;
 import meteordevelopment.meteorclient.commands.Command;
 import meteordevelopment.meteorclient.systems.modules.Modules;
-import net.minecraft.command.CommandSource;
 
 public class StashSorterCommand extends Command {
    public StashSorterCommand() {

@@ -5,7 +5,6 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import gamerguy11.sixtoolsaddon.modules.utility.DiscordNotifier;
 import meteordevelopment.meteorclient.commands.Command;
 import meteordevelopment.meteorclient.systems.modules.Modules;
-import net.minecraft.command.CommandSource;
 
 public class SetDiscordCommand extends Command {
    public SetDiscordCommand() {

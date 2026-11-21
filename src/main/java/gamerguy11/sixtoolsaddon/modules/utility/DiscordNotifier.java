@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import meteordevelopment.meteorclient.events.game.GameLeftEvent;
 import meteordevelopment.meteorclient.events.game.ReceiveMessageEvent;
 import meteordevelopment.meteorclient.settings.BoolSetting;
 import meteordevelopment.meteorclient.settings.Setting;
@@ -45,6 +46,7 @@ public class DiscordNotifier extends Module {
    private final Setting<Boolean> sendDeathCoords;
    private final Setting<Boolean> sendKills;
    private final Setting<Boolean> sendKilledBy;
+   private final Setting<Boolean> sendDisconnect;
    private final Setting<String> deathPattern;
    private final Setting<String> webhookUrl;
    private Pattern compiledCoordPattern;
@@ -64,6 +66,7 @@ public class DiscordNotifier extends Module {
       this.sendDeathCoords = this.sgGeneral.add(((BoolSetting.Builder)((BoolSetting.Builder)((BoolSetting.Builder)(new BoolSetting.Builder()).name("send-death-coords")).description("Forwards your coordinates to your Discord webhook whenever you die.")).defaultValue(false)).build());
       this.sendKills = this.sgGeneral.add(((BoolSetting.Builder)((BoolSetting.Builder)((BoolSetting.Builder)(new BoolSetting.Builder()).name("send-kills")).description("Forwards the name of any player you killed to your Discord webhook.")).defaultValue(false)).build());
       this.sendKilledBy = this.sgGeneral.add(((BoolSetting.Builder)((BoolSetting.Builder)((BoolSetting.Builder)(new BoolSetting.Builder()).name("send-killed-by")).description("Forwards the name of whoever killed you to your Discord webhook.")).defaultValue(false)).build());
+      this.sendDisconnect = this.sgGeneral.add(((BoolSetting.Builder)((BoolSetting.Builder)((BoolSetting.Builder)(new BoolSetting.Builder()).name("send-disconnect")).description("Sends a message to your Discord webhook whenever you disconnect from a server.")).defaultValue(false)).build());
       this.deathPattern = this.sgGeneral.add(((StringSetting.Builder)((StringSetting.Builder)((StringSetting.Builder)(new StringSetting.Builder()).name("death-pattern")).description("Regex used to detect death messages. Named group <victim> must be the player who died; named group <killer>, if present, is whoever killed them.")).defaultValue("^(?:\\[[^\\]]*\\]|[^A-Za-z0-9_])*(?<victim>[A-Za-z0-9_]{1,16}) (?:was slain|was shot|was fireballed|was killed|was pummeled|was impaled|was stung to death|was poked to death|was doomed to fall|was blown up|was shot off some vertical surface|walked into a cactus|drowned|died|blew up|hit the ground too hard|fell from a high place|fell off|went up in flames|burned to death|was burned to a crisp|tried to swim in lava|suffocated in a wall|froze to death|starved to death|withered away|was struck by lightning)(?:.*?\\b(?:by|hurt|escape|fighting) (?<killer>[A-Za-z0-9_]{1,16}))?")).build());
       this.webhookUrl = this.sgGeneral.add(((StringSetting.Builder)((StringSetting.Builder)((StringSetting.Builder)((StringSetting.Builder)(new StringSetting.Builder()).name("webhook-url")).description("Discord webhook URL. Use .setdiscord set/clear to manage this.")).defaultValue("")).visible(() -> false)).build());
       this.queue = new ConcurrentLinkedQueue();
@@ -104,6 +107,13 @@ public class DiscordNotifier extends Module {
 
             this.checkDeathMessage(text);
          }
+      }
+   }
+
+   @EventHandler
+   private void onGameLeft(GameLeftEvent event) {
+      if ((Boolean)this.sendDisconnect.get()) {
+         this.enqueue("[Disconnect] You disconnected from the server");
       }
    }
 

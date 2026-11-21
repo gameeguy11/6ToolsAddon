@@ -13,8 +13,6 @@ import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.systems.modules.Modules;
 import meteordevelopment.meteorclient.utils.player.Rotations;
 import meteordevelopment.meteorclient.utils.render.color.Color;
-import meteordevelopment.meteorclient.utils.player.FindItemResult;
-import meteordevelopment.meteorclient.utils.player.InvUtils;
 import meteordevelopment.orbit.EventHandler;
 import net.minecraft.network.packet.s2c.common.DisconnectS2CPacket;
 import net.minecraft.registry.RegistryKey;
@@ -23,7 +21,6 @@ import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 import net.minecraft.world.chunk.WorldChunk;
-import net.minecraft.item.Items;
 import xaeroplus.XaeroPlus;
 import xaeroplus.event.ChunkDataEvent;
 import xaeroplus.module.ModuleManager;
@@ -146,10 +143,42 @@ public class BaseHuntTrailFollower extends Module
 
     public final Setting<Boolean> autoElytra = sgGeneral.add(new BoolSetting.Builder()
         .name("auto-start-baritone-elytra")
-        .description("Starts baritone elytra for you.")
+        .description("Starts elytra flight for you (the engine is chosen with elytra-engine).")
         .defaultValue(false)
         .build()
     );
+
+    public enum ElytraEngine {
+        EflyGoto,
+        Baritone
+    }
+
+    public final Setting<ElytraEngine> elytraEngine = sgGeneral.add(new EnumSetting.Builder<ElytraEngine>()
+        .name("elytra-engine")
+        .description("EflyGoto: fly the trail with Efly Goto (no fireworks needed). Baritone: use Baritone's own elytra mode (needs fireworks).")
+        .defaultValue(ElytraEngine.EflyGoto)
+        .visible(autoElytra::get)
+        .build()
+    );
+
+    private boolean startedGoto;
+    private int lastGotoX, lastGotoZ;
+
+    private void sendGoal(int x, int z)
+    {
+        if (autoElytra.get() && elytraEngine.get() == ElytraEngine.EflyGoto)
+        {
+            gamerguy11.sixtoolsaddon.efly.pathing.EflyGoto goTo = Modules.get().get(gamerguy11.sixtoolsaddon.efly.pathing.EflyGoto.class);
+            if (goTo == null) return;
+            if (goTo.isActive() && Math.abs(x - lastGotoX) + Math.abs(z - lastGotoZ) < 16) return;
+            lastGotoX = x;
+            lastGotoZ = z;
+            startedGoto = true;
+            goTo.go(x, null, z);
+            return;
+        }
+        BaritoneAPI.getProvider().getPrimaryBaritone().getCustomGoalProcess().setGoalAndPath(new GoalXZ(x, z));
+    }
 
     private final SettingGroup sgAdvanced = settings.createGroup("Advanced", false);
 
@@ -393,6 +422,13 @@ public class BaseHuntTrailFollower extends Module
     public void onDeactivate()
     {
         started = false;
+        releaseAltitudeKeys();
+        if (startedGoto)
+        {
+            startedGoto = false;
+            gamerguy11.sixtoolsaddon.efly.pathing.EflyGoto goTo = Modules.get().get(gamerguy11.sixtoolsaddon.efly.pathing.EflyGoto.class);
+            if (goTo != null && goTo.isActive()) goTo.toggle();
+        }
 
         seenChunksCache = Caffeine.newBuilder()
             .maximumSize(chunkCacheLength.get())
@@ -425,6 +461,33 @@ public class BaseHuntTrailFollower extends Module
     }
 
     private double targetYaw;
+
+    private boolean altitudeKeysHeld = false;
+
+    private void driveAltitude()
+    {
+        double error = altitude.get() - mc.player.getY();
+        boolean up = error > 1.5;
+        boolean down = error < -1.5;
+        if (up || down)
+        {
+            mc.options.jumpKey.setPressed(up);
+            mc.options.sneakKey.setPressed(down);
+            altitudeKeysHeld = true;
+        }
+        else
+        {
+            releaseAltitudeKeys();
+        }
+    }
+
+    private void releaseAltitudeKeys()
+    {
+        if (!altitudeKeysHeld) return;
+        altitudeKeysHeld = false;
+        mc.options.jumpKey.setPressed(false);
+        mc.options.sneakKey.setPressed(false);
+    }
 
     private int baritoneSetGoalTicks = 0;
 
@@ -502,17 +565,16 @@ public class BaseHuntTrailFollower extends Module
                                 baritoneTarget = lastPos;
                             }
 
-                            BaritoneAPI.getProvider().getPrimaryBaritone().getCustomGoalProcess()
-                                .setGoalAndPath(new GoalXZ((int) baritoneTarget.x, (int) baritoneTarget.z));
+                            sendGoal((int) baritoneTarget.x, (int) baritoneTarget.z);
                         }
                     } else {
 
                         Vec3d targetPos = positionInDirection(mc.player.getEntityPos(), targetYaw, pathDistanceActual);
-                        BaritoneAPI.getProvider().getPrimaryBaritone().getCustomGoalProcess().setGoalAndPath(new GoalXZ((int) targetPos.x, (int) targetPos.z));
+                        sendGoal((int) targetPos.x, (int) targetPos.z);
 
                         targetYaw = Rotations.getYaw(targetPos);
                     }
-                    if (autoElytra.get() && (BaritoneAPI.getProvider().getPrimaryBaritone().getElytraProcess().currentDestination() == null))
+                    if (autoElytra.get() && elytraEngine.get() == ElytraEngine.Baritone && (BaritoneAPI.getProvider().getPrimaryBaritone().getElytraProcess().currentDestination() == null))
                     {
                         BaritoneAPI.getSettings().elytraTermsAccepted.value = true;
                         BaritoneAPI.getProvider().getPrimaryBaritone().getCommandManager().execute("elytra");
@@ -523,10 +585,9 @@ public class BaseHuntTrailFollower extends Module
             case YAWLOCK: {
                 mc.player.setYaw(BaseHuntUtils.smoothRotation(getActualYaw(mc.player.getYaw()), targetYaw, rotateScaling.get()));
                 if (holdAltitude.get() && overworldFlightMode.get() == OverworldFlightMode.EFLY && !mc.world.getRegistryKey().equals(World.NETHER)) {
-                    double error = mc.player.getY() - altitude.get();
-                    float wanted = (float) Math.max(-25.0, Math.min(25.0, error * 0.4));
-                    float pitch = mc.player.getPitch();
-                    mc.player.setPitch(pitch + Math.max(-3.0f, Math.min(3.0f, wanted - pitch)));
+                    driveAltitude();
+                } else {
+                    releaseAltitudeKeys();
                 }
                 break;
             }

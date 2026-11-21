@@ -180,7 +180,7 @@ public class BaseHuntStashFinder extends Module {
     private final Set<Long> alerted = new HashSet<>();
 
     public BaseHuntStashFinder() {
-        super(SixToolsAddon.BASE_HUNTING, "hunt-stash-finder", "Finds chunks with lots of storage blocks while you fly past. Works alongside the Base Hunter.");
+        super(SixToolsAddon.BASE_HUNTING, "6tools-stash-finder", "Finds chunks with lots of storage blocks while you fly past. Works alongside the Base Hunter.");
     }
 
     @Override

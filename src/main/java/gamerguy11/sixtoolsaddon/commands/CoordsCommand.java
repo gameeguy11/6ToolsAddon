@@ -4,7 +4,6 @@ import gamerguy11.sixtoolsaddon.modules.utility.Spoofer;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import meteordevelopment.meteorclient.commands.Command;
 import meteordevelopment.meteorclient.utils.player.ChatUtils;
-import net.minecraft.command.CommandSource;
 import net.minecraft.util.math.BlockPos;
 
 public class CoordsCommand extends Command {

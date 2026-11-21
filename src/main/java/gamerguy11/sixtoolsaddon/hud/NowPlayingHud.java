@@ -9,6 +9,7 @@ import meteordevelopment.meteorclient.settings.DoubleSetting;
 import meteordevelopment.meteorclient.settings.IntSetting;
 import meteordevelopment.meteorclient.settings.Setting;
 import meteordevelopment.meteorclient.settings.SettingGroup;
+import meteordevelopment.meteorclient.settings.StringSetting;
 import meteordevelopment.meteorclient.systems.hud.Hud;
 import meteordevelopment.meteorclient.systems.hud.HudElement;
 import meteordevelopment.meteorclient.systems.hud.HudElementInfo;
@@ -20,6 +21,8 @@ public class NowPlayingHud extends HudElement {
    private final SettingGroup sgGeneral;
    private final SettingGroup sgScale;
    private final Setting<Boolean> showArtist;
+   private final Setting<Boolean> prefixEnabled;
+   private final Setting<String> prefixText;
    private final Setting<Boolean> hideWhenPaused;
    private final Setting<Integer> maxLength;
    private final Setting<Boolean> shadow;
@@ -32,6 +35,8 @@ public class NowPlayingHud extends HudElement {
       super(INFO);
       this.sgGeneral = this.settings.getDefaultGroup();
       this.showArtist = this.sgGeneral.add(((BoolSetting.Builder)((BoolSetting.Builder)((BoolSetting.Builder)(new BoolSetting.Builder()).name("show-artist")).description("Shows the artist before the track title.")).defaultValue(true)).build());
+      this.prefixEnabled = this.sgGeneral.add(new BoolSetting.Builder().name("prefix").description("Adds a symbol before the track text.").defaultValue(false).build());
+      this.prefixText = this.sgGeneral.add(new StringSetting.Builder().name("prefix-text").description("The text added before the track.").defaultValue("♪").visible(this.prefixEnabled::get).build());
       this.hideWhenPaused = this.sgGeneral.add(((BoolSetting.Builder)((BoolSetting.Builder)((BoolSetting.Builder)(new BoolSetting.Builder()).name("hide-when-paused")).description("Hides the element when nothing is playing.")).defaultValue(true)).build());
       this.maxLength = this.sgGeneral.add(((IntSetting.Builder)((IntSetting.Builder)((IntSetting.Builder)(new IntSetting.Builder()).name("max-length")).description("Longest text to show before it is cut off with '...'.")).defaultValue(50)).min(10).sliderRange(10, 100).build());
       this.shadow = this.sgGeneral.add(((BoolSetting.Builder)((BoolSetting.Builder)((BoolSetting.Builder)(new BoolSetting.Builder()).name("shadow")).description("Renders a shadow behind the text.")).defaultValue(true)).build());
@@ -61,7 +66,9 @@ public class NowPlayingHud extends HudElement {
          : media.getTitle();
 
       int max = this.maxLength.get();
-      return text.length() > max ? text.substring(0, max - 3) + "..." : text;
+      text = text.length() > max ? text.substring(0, max - 3) + "..." : text;
+      String lead = this.prefixText.get().trim();
+      return this.prefixEnabled.get() && !lead.isEmpty() ? lead + " " + text : text;
    }
 
    public void tick(HudRenderer renderer) {

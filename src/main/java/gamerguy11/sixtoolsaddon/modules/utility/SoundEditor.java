@@ -4,6 +4,9 @@ import gamerguy11.sixtoolsaddon.SixToolsAddon;
 import gamerguy11.sixtoolsaddon.sound.SoundEngine;
 import gamerguy11.sixtoolsaddon.sound.SoundType;
 import gamerguy11.sixtoolsaddon.systems.enemies.Enemies;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.WeakHashMap;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
@@ -11,16 +14,23 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 import meteordevelopment.meteorclient.events.entity.EntityAddedEvent;
+import meteordevelopment.meteorclient.events.entity.EntityRemovedEvent;
+import meteordevelopment.meteorclient.events.world.PlaySoundEvent;
 import meteordevelopment.meteorclient.events.game.GameLeftEvent;
 import meteordevelopment.meteorclient.events.game.ReceiveMessageEvent;
 import meteordevelopment.meteorclient.events.meteor.KeyEvent;
 import meteordevelopment.meteorclient.events.world.TickEvent;
 import meteordevelopment.meteorclient.gui.GuiTheme;
 import meteordevelopment.meteorclient.gui.widgets.WWidget;
+import meteordevelopment.meteorclient.gui.widgets.WLabel;
 import meteordevelopment.meteorclient.gui.widgets.containers.WHorizontalList;
 import meteordevelopment.meteorclient.gui.widgets.containers.WSection;
+import meteordevelopment.meteorclient.gui.widgets.containers.WTable;
 import meteordevelopment.meteorclient.gui.widgets.containers.WVerticalList;
+import meteordevelopment.meteorclient.gui.widgets.input.WDropdown;
+import meteordevelopment.meteorclient.gui.widgets.input.WTextBox;
 import meteordevelopment.meteorclient.gui.widgets.pressable.WButton;
+import meteordevelopment.meteorclient.gui.widgets.pressable.WMinus;
 import meteordevelopment.meteorclient.settings.BoolSetting;
 import meteordevelopment.meteorclient.settings.DoubleSetting;
 import meteordevelopment.meteorclient.settings.EnumSetting;
@@ -32,7 +42,12 @@ import meteordevelopment.meteorclient.settings.StringSetting;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.misc.input.KeyAction;
 import meteordevelopment.orbit.EventHandler;
+import meteordevelopment.meteorclient.utils.player.ChatUtils;
+import net.minecraft.client.sound.SoundInstance;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.decoration.EndCrystalEntity;
+import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.Util;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.sound.SoundCategory;
@@ -47,7 +62,7 @@ public class SoundEditor extends Module {
    private boolean wasDead;
 
    public SoundEditor() {
-      super(SixToolsAddon.CATEGORY, "sound-editor", "Plays sounds from your own files for addon events. Put .ogg/.wav files in config/sixtoolsaddon/sounds/<type>/ (one folder per sound type, created automatically). Several files in one folder? Pick Random, Sequential or Specific per type below, or use the file list at the bottom of this window. Nothing plays for a type until its folder has a file.");
+      super(SixToolsAddon.CATEGORY, "sound-editor", "Plays sounds from your own files for addon events. Put .ogg/.wav files in config/sixtoolsaddon/sounds/<type>/ (one folder per sound type, created automatically). Game sounds can be replaced too: add a rule in the Replacements section, e.g. only the end crystal explosion. Several files in one folder? Pick Random, Sequential or Specific per type below, or use the file list at the bottom of this window. Nothing plays for a type until its folder has a file.");
       this.sgGeneral = this.settings.getDefaultGroup();
       this.masterVolume = this.sgGeneral.add(((IntSetting.Builder)((IntSetting.Builder)((IntSetting.Builder)(new IntSetting.Builder()).name("master-volume")).description("Overall volume of every sound this module plays (percent).")).defaultValue(100)).min(0).max(200).sliderRange(0, 200).build());
       this.followGameVolume = this.sgGeneral.add(((BoolSetting.Builder)((BoolSetting.Builder)((BoolSetting.Builder)(new BoolSetting.Builder()).name("follow-game-volume")).description("Also scale by Minecraft's own Master Volume slider so these sounds obey it.")).defaultValue(true)).build());
@@ -198,44 +213,60 @@ public class SoundEditor extends Module {
       SoundEngine.INSTANCE.rescan();
    }
 
+   private static void hint(GuiTheme theme, WVerticalList parent, String text) {
+      WLabel label = parent.add(theme.label(text, 420.0)).expandX().widget();
+      label.color(theme.textSecondaryColor());
+   }
+
    public WWidget getWidget(GuiTheme theme) {
       SoundEngine engine = SoundEngine.INSTANCE;
       engine.rescan();
       WVerticalList list = theme.verticalList();
-      WHorizontalList top = (WHorizontalList)list.add(theme.horizontalList()).expandX().widget();
-      ((WButton)top.add(theme.button("Open sounds folder")).expandX().widget()).action = () -> Util.getOperatingSystem().open(engine.getRoot());
-      ((WButton)top.add(theme.button("Reload files")).widget()).action = () -> {
+
+      WHorizontalList bar = list.add(theme.horizontalList()).expandX().widget();
+      WButton openRoot = bar.add(theme.button("Open sounds folder")).expandX().widget();
+      openRoot.action = () -> Util.getOperatingSystem().open(engine.getRoot());
+      WButton reload = bar.add(theme.button("Reload files")).expandX().widget();
+      reload.action = () -> {
          engine.reload();
          this.mc.setScreen(theme.moduleScreen(this));
       };
-      list.add(theme.label("Folder: " + String.valueOf(engine.getRoot())));
-      list.add(theme.label("Supports .ogg and .wav. Files are picked up automatically; press Reload after editing an existing file."));
+      hint(theme, list, "Supports .ogg and .wav. New files are picked up automatically, press Reload files after editing an existing one.");
+
+      list.add(theme.horizontalSeparator("Event sounds")).expandX();
+      hint(theme, list, "Sounds this addon plays for its own events. Nothing plays for a type until its folder has a file.");
 
       for(SoundType type : SoundType.values()) {
          List<String> names = engine.getFileNames(type);
-         TypeSettings ts = (TypeSettings)this.types.get(type);
-         String var10002 = type.display;
-         WSection section = (WSection)list.add(theme.section(var10002 + " (" + names.size() + (names.size() == 1 ? " file)" : " files)"), false)).expandX().widget();
-         section.add(theme.label(type.description));
-         WHorizontalList actions = (WHorizontalList)section.add(theme.horizontalList()).expandX().widget();
-         ((WButton)actions.add(theme.button("Open folder")).widget()).action = () -> Util.getOperatingSystem().open(engine.getFolder(type));
-         if (names.isEmpty()) {
-            section.add(theme.label("No sounds yet - drop .ogg / .wav files into sounds/" + type.folder + "/"));
-         } else {
-            String current = ts.mode.get() == SoundEngine.Mode.Specific ? (String)ts.file.get() : "";
-            var10002 = String.valueOf(ts.mode.get());
-            actions.add(theme.label("Mode: " + var10002 + (current.isBlank() ? "" : " (" + current + ")")));
+         TypeSettings ts = this.types.get(type);
+         String title = type.display + " (" + names.size() + (names.size() == 1 ? " file)" : " files)");
+         WSection section = list.add(theme.section(title, false)).expandX().widget();
+         hint(theme, section, type.description);
 
-            for(String name : names) {
-               WHorizontalList row = (WHorizontalList)section.add(theme.horizontalList()).expandX().widget();
-               row.add(theme.label(name)).expandX();
-               ((WButton)row.add(theme.button("Play")).widget()).action = () -> this.preview(type, name);
-               ((WButton)row.add(theme.button("Use")).widget()).action = () -> {
-                  ts.mode.set(SoundEngine.Mode.Specific);
-                  ts.file.set(name);
-                  this.mc.setScreen(theme.moduleScreen(this));
-               };
-            }
+         String selected = ts.mode.get() == SoundEngine.Mode.Specific ? ts.file.get() : "";
+         WHorizontalList info = section.add(theme.horizontalList()).expandX().widget();
+         info.add(theme.label("Mode: " + ts.mode.get() + (selected.isBlank() ? "" : " (" + selected + ")")));
+         WButton openFolder = info.add(theme.button("Open folder")).widget();
+         openFolder.action = () -> Util.getOperatingSystem().open(engine.getFolder(type));
+
+         if (names.isEmpty()) {
+            hint(theme, section, "No files yet. Drop .ogg / .wav into sounds/" + type.folder + "/");
+            continue;
+         }
+
+         WTable files = section.add(theme.table()).expandX().widget();
+         for(String name : names) {
+            boolean active = name.equalsIgnoreCase(selected);
+            files.add(theme.label(active ? name + "  (selected)" : name)).expandX();
+            WButton play = files.add(theme.button("Play")).widget();
+            play.action = () -> this.preview(type, name);
+            WButton use = files.add(theme.button("Select")).widget();
+            use.action = () -> {
+               ts.mode.set(SoundEngine.Mode.Specific);
+               ts.file.set(name);
+               this.mc.setScreen(theme.moduleScreen(this));
+            };
+            files.row();
          }
       }
 

@@ -5,7 +5,6 @@ import gamerguy11.sixtoolsaddon.modules.StashMover;
 import meteordevelopment.meteorclient.commands.Command;
 import meteordevelopment.meteorclient.systems.config.Config;
 import meteordevelopment.meteorclient.systems.modules.Modules;
-import net.minecraft.command.CommandSource;
 
 public class SetClear extends Command {
    public SetClear() {

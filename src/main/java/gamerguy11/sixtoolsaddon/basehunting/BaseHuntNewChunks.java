@@ -648,7 +648,7 @@ public class BaseHuntNewChunks extends Module {
 			Paths.get("BlockExploitChunkData.txt")
 	));
 	public BaseHuntNewChunks() {
-		super(SixToolsAddon.BASE_HUNTING,"hunt-new-chunks", "Detects new chunks by scanning the order of chunk section palettes. Can also check liquid flow, and block ticking packets.");
+		super(SixToolsAddon.BASE_HUNTING,"6tools-new-chunks", "Detects new chunks by scanning the order of chunk section palettes. Can also check liquid flow, and block ticking packets.");
 	}
 	private void clearChunkData() {
 		newChunks.clear();

@@ -440,7 +440,7 @@ public class BetterSign extends Module {
             send(pos, true, linesFor(hanging, true));
             if (writeBack) {
                 rearPending.add(pos);
-                // Re-open the sign a couple of ticks later so the server has processed the front edit first.
+
                 rearInteractPos = pos;
                 rearInteractTicks = 3;
                 return;

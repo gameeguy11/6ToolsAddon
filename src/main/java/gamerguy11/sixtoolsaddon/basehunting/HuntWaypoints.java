@@ -27,6 +27,51 @@ public final class HuntWaypoints {
         MeteorClient.mc.execute(() -> place(name, pos));
     }
 
+    private static Object autonavXaero;
+    private static Waypoint autonavMeteor;
+
+    public static void setAutonav(BlockPos pos) {
+        MeteorClient.mc.execute(() -> {
+            removeAutonavNow();
+            FabricLoader loader = FabricLoader.getInstance();
+            if (loader.isModLoaded("xaerominimap") && loader.isModLoaded("xaeroworldmap")) {
+                try {
+                    autonavXaero = XaeroSide.addTemp("Autonav", pos);
+                    return;
+                } catch (Throwable t) {
+                    autonavXaero = null;
+                }
+            }
+            try {
+                autonavMeteor = new Waypoint.Builder().name("Autonav").pos(pos).build();
+                Waypoints.get().add(autonavMeteor);
+            } catch (Throwable t) {
+                autonavMeteor = null;
+            }
+        });
+    }
+
+    public static void clearAutonav() {
+        MeteorClient.mc.execute(HuntWaypoints::removeAutonavNow);
+    }
+
+    private static void removeAutonavNow() {
+        if (autonavXaero != null) {
+            try {
+                XaeroSide.remove(autonavXaero);
+            } catch (Throwable ignored) {
+            }
+            autonavXaero = null;
+        }
+        if (autonavMeteor != null) {
+            try {
+                Waypoints.get().remove(autonavMeteor);
+            } catch (Throwable ignored) {
+            }
+            autonavMeteor = null;
+        }
+    }
+
     public static void clearHistory() {
         synchronized (added) {
             added.clear();
@@ -53,6 +98,35 @@ public final class HuntWaypoints {
     }
 
     private static final class XaeroSide {
+        static Object addTemp(String name, BlockPos pos) {
+            xaero.hud.minimap.module.MinimapSession session = xaero.hud.minimap.BuiltInHudModules.MINIMAP.getCurrentSession();
+            if (session == null) throw new IllegalStateException("no minimap session");
+            xaero.hud.minimap.world.MinimapWorld world = session.getWorldManager().getCurrentWorld();
+            if (world == null) throw new IllegalStateException("no minimap world");
+            xaero.hud.minimap.waypoint.set.WaypointSet set = world.getCurrentWaypointSet();
+            if (set == null) throw new IllegalStateException("no waypoint set");
+            xaero.common.minimap.waypoints.Waypoint wp = new xaero.common.minimap.waypoints.Waypoint(pos.getX(), pos.getY(), pos.getZ(), name, "A", 4, 0, true);
+            set.add(wp);
+            xaero.map.mods.SupportMods.xaeroMinimap.requestWaypointsRefresh();
+            return wp;
+        }
+
+        static void remove(Object wp) throws Exception {
+            xaero.hud.minimap.module.MinimapSession session = xaero.hud.minimap.BuiltInHudModules.MINIMAP.getCurrentSession();
+            if (session == null) return;
+            xaero.hud.minimap.world.MinimapWorld world = session.getWorldManager().getCurrentWorld();
+            if (world == null) return;
+            Object set = world.getCurrentWaypointSet();
+            if (set == null) return;
+            for (java.lang.reflect.Method m : set.getClass().getMethods()) {
+                if (m.getName().equals("remove") && m.getParameterCount() == 1 && m.getParameterTypes()[0].isInstance(wp)) {
+                    m.invoke(set, wp);
+                    break;
+                }
+            }
+            xaero.map.mods.SupportMods.xaeroMinimap.requestWaypointsRefresh();
+        }
+
         static void add(String name, BlockPos pos) {
             xaero.hud.minimap.module.MinimapSession session = xaero.hud.minimap.BuiltInHudModules.MINIMAP.getCurrentSession();
             if (session == null) throw new IllegalStateException("no minimap session");

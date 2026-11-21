@@ -10,6 +10,8 @@
     "spoof.BetterF3ChunksMixin",
     "spoof.KeyboardClipboardMixin",
     "spoof.XaeroMinimapInfoMixin",
-    "spoof.XaeroWorldMapMixin"
+    "spoof.XaeroWorldMapMixin",
+    "xaero.XaeroGotoOptionMixin",
+    "xaero.XaeroWaypointGotoOptionMixin"
   ]
 }

@@ -6,7 +6,6 @@
   "client": [
     "shulkerview.DuckHandledScreen",
     "shulkerview.MixinHandledScreen",
-    "shulkerview.MixinCreativeInventoryScreen",
     "chesttracker.MixinMinecraftClient",
     "splash.SplashTextResourceSupplierMixin",
     "splash.TitleScreenSplashClickMixin",
@@ -15,6 +14,7 @@
     "swing.LivingEntitySwingSpeedMixin",
     "swing.ClientPlayerEntitySwingHandMixin",
     "swing.HeldItemRendererSwingRotationMixin",
+    "swing.HeldItemRendererSwingTypeMixin",
     "shaders.WorldRendererBetterShaderMixin",
     "shaders.RenderSystemBetterMixin",
     "respawn.RespawnPointBlockerMixin",
@@ -27,6 +27,7 @@
     "accessor.ClientPlayerInteractionManagerAccessor",
     "handprogress.HeldItemRendererProgressMixin",
     "InputMixin",
+    "KeyboardInputWalkMixin",
     "ItemSearchFieldMixin",
     "meteorfix.WDropdownClickThroughMixin",
     "meteorfix.WContainerDropdownPriorityMixin",

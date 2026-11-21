@@ -8,7 +8,6 @@ import java.util.List;
 import meteordevelopment.meteorclient.commands.Command;
 import meteordevelopment.meteorclient.systems.friends.Friends;
 import meteordevelopment.meteorclient.utils.player.ChatUtils;
-import net.minecraft.command.CommandSource;
 import net.minecraft.client.network.PlayerListEntry;
 
 public class OnlinePlayersCommand extends Command {

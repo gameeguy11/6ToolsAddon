@@ -442,7 +442,7 @@ public final class FishStats {
 
         StringBuilder h = new StringBuilder();
         h.append("<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n<meta http-equiv=\"refresh\" content=\"").append(refreshSeconds).append("\">\n<title>Fish Stats</title>\n<style>\n")
-            .append("body { background-color: #36393f; color: #dcddde; font-family: sans-serif; padding: 10px; max-width: 800px; margin: auto; }\n")
+            .append("body { background-color: #36393f; color: #dcddde; font-family: sans-serif; padding: 10px; max-width: 1100px; margin: auto; }\n")
             .append("h2 { color: #fff; text-align: center; margin-bottom: 6px; }\n")
             .append(".sub { text-align: center; color: #72767d; font-size: 0.8rem; margin-bottom: 18px; }\n")
             .append(".top { display: flex; gap: 10px; margin-bottom: 14px; }\n")
@@ -455,6 +455,19 @@ public final class FishStats {
             .append("td.n, th.n { text-align: right; }\n")
             .append("tr + tr td { border-top: 1px solid #36393f; }\n")
             .append("h3 { color: #fff; margin: 18px 0 8px; }\n")
+            .append(".hd { display: flex; align-items: center; justify-content: space-between; }\n")
+            .append(".tog button { background: #2f3136; color: #b9bbbe; border: 1px solid #36393f; padding: 4px 12px; cursor: pointer; }\n")
+            .append(".tog button.on { background: #5865f2; color: #fff; }\n")
+            .append(".pie { display: none; align-items: center; gap: 24px; margin-bottom: 18px; }\n")
+            .append(".disc { width: 180px; height: 180px; border-radius: 50%; flex: none; }\n")
+            .append(".lg { margin: 4px 0; }\n")
+            .append(".sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; }\n")
+            .append(".cols { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 18px; }\n")
+            .append(".left { flex: 3; min-width: 0; }\n")
+            .append(".right { flex: 2; min-width: 0; }\n")
+            .append(".scroll { max-height: 420px; overflow-y: auto; border-radius: 6px; }\n")
+            .append(".cols table { margin-bottom: 0; }\n")
+            .append(".cols h3 { margin-top: 0; }\n")
             .append("</style>\n</head>\n<body>\n<h2>SixToolsAddon Fish Stats</h2>\n");
         h.append("<div class=\"sub\">Updated ").append(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
             .append(" &middot; refreshes every " + refreshSeconds + "s &middot; idle gaps over 15 min are not counted as fishing time</div>\n");
@@ -472,16 +485,58 @@ public final class FishStats {
                 .append("</div>\n");
         }
 
-        h.append("<h3>Rarities</h3>\n<table>\n<tr><th>Rarity</th><th class=\"n\">Caught</th><th class=\"n\">Share</th><th class=\"n\">Per hour (avg)</th></tr>\n");
         List<String> rarities = new ArrayList<>(ORDER);
         for (Map.Entry<String, Integer> e : byRarity.entrySet()) if (!rarities.contains(e.getKey()) && e.getValue() > 0) rarities.add(e.getKey());
+        int rarityTotal = 0;
+        for (String r : rarities) rarityTotal += byRarity.getOrDefault(r, 0);
+        h.append("<div class=\"hd\"><h3>Rarities</h3><span class=\"tog\"><button id=\"bt\" onclick=\"vw('t')\">Table</button><button id=\"bp\" onclick=\"vw('p')\">Pie chart</button></span></div>\n<div id=\"vt\">\n<table>\n<tr><th>Rarity</th><th class=\"n\">Caught</th><th class=\"n\">Share</th><th class=\"n\">Per hour (avg)</th></tr>\n");
+        StringBuilder slices = new StringBuilder();
+        StringBuilder legend = new StringBuilder();
+        double acc = 0;
         for (String r : rarities) {
             int n = byRarity.getOrDefault(r, 0);
             String share = sorted.isEmpty() ? "-" : String.format(Locale.ROOT, "%.1f%%", 100.0 * n / sorted.size());
             h.append("<tr><td style=\"color:").append(color(r)).append(";font-weight:bold\">").append(esc(r)).append("</td><td class=\"n\">")
                 .append(n).append("</td><td class=\"n\">").append(share).append("</td><td class=\"n\">").append(rate(n, hours)).append("</td></tr>\n");
+            if (n <= 0 || rarityTotal <= 0) continue;
+            double from = 100.0 * acc / rarityTotal;
+            acc += n;
+            double to = 100.0 * acc / rarityTotal;
+            if (slices.length() > 0) slices.append(", ");
+            slices.append(color(r)).append(String.format(Locale.ROOT, " %.3f%% %.3f%%", from, to));
+            legend.append("<div class=\"lg\"><span class=\"sw\" style=\"background:").append(color(r)).append("\"></span><b style=\"color:").append(color(r)).append("\">")
+                .append(esc(r)).append("</b>&nbsp;").append(n).append(" (").append(String.format(Locale.ROOT, "%.1f%%", 100.0 * n / rarityTotal)).append(")</div>\n");
         }
-        h.append("</table>\n");
+        if (slices.length() == 0) slices.append("#36393f 0% 100%");
+        h.append("</table>\n</div>\n<div id=\"vp\" class=\"pie\">\n<div class=\"disc\" style=\"background:conic-gradient(").append(slices).append(")\"></div>\n<div>\n")
+            .append(legend).append("</div>\n</div>\n");
+        h.append("<script>function vw(m){document.getElementById('vt').style.display=m=='t'?'':'none';document.getElementById('vp').style.display=m=='p'?'flex':'none';")
+            .append("document.getElementById('bt').className=m=='t'?'on':'';document.getElementById('bp').className=m=='p'?'on':'';")
+            .append("try{localStorage.setItem('fishView',m)}catch(e){}}var fm='t';try{fm=localStorage.getItem('fishView')||'t'}catch(e){}vw(fm=='p'?'p':'t');</script>\n\n");
+
+        long dayAgo = now - 86400;
+        List<Catch> recent = new ArrayList<>();
+        for (Catch c : sorted) if (c.time() >= dayAgo) recent.add(c);
+        java.util.Collections.reverse(recent);
+        List<Catch> biggest = new ArrayList<>(sorted);
+        biggest.sort((a, b) -> Double.compare(b.size(), a.size()));
+        if (biggest.size() > 5) biggest = new ArrayList<>(biggest.subList(0, 5));
+        DateTimeFormatter timeFmt = DateTimeFormatter.ofPattern("MM-dd HH:mm:ss");
+        h.append("<div class=\"cols\">\n<div class=\"left\">\n<h3>Caught in the last 24 hours (").append(recent.size()).append(")</h3>\n<div class=\"scroll\">\n<table>\n<tr><th>Fish</th><th class=\"n\">Size (cm)</th><th class=\"n\">Time</th></tr>\n");
+        for (Catch c : recent) {
+            h.append("<tr><td style=\"color:").append(color(effective(c))).append(";font-weight:bold\">").append(esc(c.name())).append("</td><td class=\"n\">")
+                .append(String.format(Locale.ROOT, "%.1f", c.size())).append("</td><td class=\"n\">")
+                .append(Instant.ofEpochSecond(c.time()).atZone(ZoneId.systemDefault()).format(timeFmt)).append("</td></tr>\n");
+        }
+        if (recent.isEmpty()) h.append("<tr><td colspan=\"3\">No catches in the last 24 hours.</td></tr>\n");
+        h.append("</table>\n</div>\n</div>\n<div class=\"right\">\n<h3>Top 5 biggest fish</h3>\n<table>\n<tr><th class=\"n\">#</th><th>Fish</th><th class=\"n\">Size (cm)</th></tr>\n");
+        int rank = 1;
+        for (Catch c : biggest) {
+            h.append("<tr><td class=\"n\">").append(rank++).append("</td><td style=\"color:").append(color(effective(c))).append(";font-weight:bold\">").append(esc(c.name()))
+                .append("</td><td class=\"n\">").append(String.format(Locale.ROOT, "%.1f", c.size())).append("</td></tr>\n");
+        }
+        if (biggest.isEmpty()) h.append("<tr><td colspan=\"3\">No catches yet.</td></tr>\n");
+        h.append("</table>\n</div>\n</div>\n");
 
         List<Map.Entry<String, int[]>> entries = new ArrayList<>(species.entrySet());
         entries.sort((a, b) -> Integer.compare(b.getValue()[0], a.getValue()[0]));

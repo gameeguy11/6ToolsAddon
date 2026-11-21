@@ -9,4 +9,10 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 public interface DuckHandledScreen {
    @Accessor("focusedSlot")
    Slot shulkerView$getFocused();
+
+   @Accessor("x")
+   int shulkerView$getX();
+
+   @Accessor("y")
+   int shulkerView$getY();
 }

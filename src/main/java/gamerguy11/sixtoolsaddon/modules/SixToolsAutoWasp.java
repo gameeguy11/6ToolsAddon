@@ -12,8 +12,6 @@ import meteordevelopment.meteorclient.events.entity.player.PlayerMoveEvent;
 import meteordevelopment.meteorclient.events.game.GameLeftEvent;
 import meteordevelopment.meteorclient.events.packets.PacketEvent;
 import meteordevelopment.meteorclient.events.world.TickEvent;
-import meteordevelopment.meteorclient.gui.GuiTheme;
-import meteordevelopment.meteorclient.gui.widgets.WWidget;
 import meteordevelopment.meteorclient.mixininterface.IVec3d;
 import meteordevelopment.meteorclient.settings.BoolSetting;
 import meteordevelopment.meteorclient.settings.DoubleSetting;
@@ -32,6 +30,7 @@ import meteordevelopment.meteorclient.utils.entity.TargetUtils;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
 import meteordevelopment.meteorclient.utils.player.SlotUtils;
 import meteordevelopment.orbit.EventHandler;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.AttributeModifiersComponent;
@@ -69,7 +68,7 @@ public class SixToolsAutoWasp extends Module {
 
     private final Setting<Boolean> followEfly = sgGeneral.add(new BoolSetting.Builder()
         .name("follow-efly")
-        .description("Uses Efly's maximum horizontal and vertical speed, height limit and unloaded chunk check, and keeps Efly from controlling movement while this module is active.")
+        .description("Uses Efly's speeds (minimum, maximum and acceleration ramp, horizontal and vertical), height limit and unloaded chunk check, and keeps Efly from controlling movement while this module is active.")
         .defaultValue(true)
         .build()
     );
@@ -160,10 +159,10 @@ public class SixToolsAutoWasp extends Module {
         .build()
     );
 
-    private final Setting<Boolean> friendFilter = sgGeneral.add(new BoolSetting.Builder()
-        .name("friend-filter")
-        .description("When enabled: only-friends=true follows friends, only-friends=false follows non-friends.")
-        .defaultValue(false)
+    private final Setting<Boolean> ignoreFriends = sgGeneral.add(new BoolSetting.Builder()
+        .name("ignore-friends")
+        .description("Never follows players on your friends list (unless only-friends is on, or you typed their name in target-name).")
+        .defaultValue(true)
         .build()
     );
 
@@ -242,12 +241,21 @@ public class SixToolsAutoWasp extends Module {
         .build()
     );
 
+    private final Setting<Boolean> swapBackOnDisable = sgChestSwap.add(new BoolSetting.Builder()
+        .name("swap-back-on-disable")
+        .description("When this module is turned off while you wear an elytra, puts your chestplate back on immediately, even in mid-air. Does nothing while Efly is on, so you keep flying.")
+        .defaultValue(true)
+        .visible(autoChestSwap::get)
+        .build()
+    );
+
     private final Setting<Double> rampStep = sgRamp.add(new DoubleSetting.Builder()
         .name("ramp-step")
         .description("Horizontal boost acceleration in blocks per tick squared at rest, tapering to zero at the top speed.")
         .defaultValue(0.3)
         .range(0.01, 5.0)
         .sliderRange(0.05, 2.0)
+        .visible(() -> !followEfly.get())
         .build()
     );
 
@@ -300,10 +308,14 @@ public class SixToolsAutoWasp extends Module {
     private int targetSearchTimer;
     private boolean waitingForElytra;
     private int chestSwapCooldown;
+    private boolean swapBackPending;
+    private int swapBackTicks;
 
     public SixToolsAutoWasp() {
         super(SixToolsAddon.CATEGORY, "6tools-auto-wasp", "Follows a player on an elytra with obstacle-aware routing, using Efly's limits.");
         applyTitle();
+
+        ClientTickEvents.START_CLIENT_TICK.register(client -> tickSwapBack());
     }
 
     private void applyTitle() {
@@ -362,6 +374,14 @@ public class SixToolsAutoWasp extends Module {
 
         Efly efly = Modules.get().get(Efly.class);
         if (efly != null) efly.setExternalControl(false);
+
+        swapBackTicks = 0;
+        swapBackPending = swapBackOnDisable.get() && autoChestSwap.get() && !Modules.get().isActive(Efly.class)
+            && mc.player != null && mc.player.getEquippedStack(EquipmentSlot.CHEST).contains(DataComponentTypes.GLIDER);
+        if (swapBackPending) {
+            chestSwapCooldown = 0;
+            requestChestGear(false);
+        }
     }
 
     @EventHandler
@@ -494,12 +514,13 @@ public class SixToolsAutoWasp extends Module {
 
     private boolean acceptsTarget(PlayerEntity player) {
         String wanted = targetName.get().trim();
-        if (!wanted.isEmpty() && !player.getName().getString().equalsIgnoreCase(wanted)) return false;
+        boolean named = !wanted.isEmpty();
+        if (named && !player.getName().getString().equalsIgnoreCase(wanted)) return false;
 
         boolean isFriend = Friends.get().isFriend(player);
-        return friendFilter.get()
-            ? (onlyFriends.get() ? isFriend : !isFriend)
-            : !onlyFriends.get() || isFriend;
+        if (onlyFriends.get()) return isFriend;
+        if (named) return true;
+        return !ignoreFriends.get() || !isFriend;
     }
 
     private void findTarget() {
@@ -604,6 +625,22 @@ public class SixToolsAutoWasp extends Module {
 
         if (glider) flightController.elytraSwapped();
         chestSwapCooldown = CHEST_SWAP_COOLDOWN_TICKS;
+    }
+
+    private void tickSwapBack() {
+        if (!swapBackPending) return;
+        if (isActive() || mc.player == null || mc.world == null || !mc.player.isAlive()
+            || Modules.get().isActive(Efly.class) || ++swapBackTicks > 1200) {
+            swapBackPending = false;
+            return;
+        }
+        if (!mc.player.getEquippedStack(EquipmentSlot.CHEST).contains(DataComponentTypes.GLIDER)) {
+            swapBackPending = false;
+            return;
+        }
+        if (swapBackTicks % 2 != 0) return;
+        chestSwapCooldown = 0;
+        requestChestGear(false);
     }
 
     private boolean hasUsableElytra() {
@@ -721,7 +758,33 @@ public class SixToolsAutoWasp extends Module {
     }
 
     public double rampStepValue() {
-        return rampStep.get();
+        Efly efly = followedEfly();
+        return Math.max(0.01, efly != null ? efly.accelerationStep.get() : rampStep.get());
+    }
+
+    public double horizontalRampStart() {
+        Efly efly = followedEfly();
+        return efly != null ? efly.startSpeed.get() : AutoWaspSpeed.HORIZONTAL_START;
+    }
+
+    public double horizontalRampPlateau() {
+        Efly efly = followedEfly();
+        return efly != null ? efly.accelerationPlateau.get() : AutoWaspSpeed.HORIZONTAL_TOP;
+    }
+
+    public double verticalRampStart() {
+        Efly efly = followedEfly();
+        return efly != null ? efly.verticalStartSpeed.get() : AutoWaspSpeed.VERTICAL_START;
+    }
+
+    public double verticalRampPlateau() {
+        Efly efly = followedEfly();
+        return efly != null ? efly.verticalAccelerationPlateau.get() : AutoWaspSpeed.VERTICAL_TOP;
+    }
+
+    public double verticalRampStep() {
+        Efly efly = followedEfly();
+        return Math.max(0.01, efly != null ? efly.verticalAccelerationStep.get() : AutoWaspSpeed.VERTICAL_STEP);
     }
 
     public int setbackRewindTicksValue() {
@@ -750,14 +813,6 @@ public class SixToolsAutoWasp extends Module {
         String state = flightController.state();
         String name = target.getName().getString();
         return state.equals("Pursuing") || state.equals("Waiting") ? name : name + " | " + state;
-    }
-
-    @Override
-    public WWidget getWidget(GuiTheme theme) {
-        var list = theme.verticalList();
-        list.add(theme.label("Auto Wasp adapted from DEVILS (ThianYong-hub) via Comet"));
-        list.add(theme.label("GNU GPL v3 (GPL-3.0-only), no warranty"));
-        return list;
     }
 
     public enum Action {

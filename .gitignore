@@ -8,3 +8,6 @@ out/
 worker/.wrangler/
 .DS_Store
 version.properties
+*.rej
+*.orig
+javac.*.args
